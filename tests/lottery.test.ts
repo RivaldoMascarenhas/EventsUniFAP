@@ -78,4 +78,32 @@ describe("LotteryService Unit Tests", () => {
 
     expect(candidates.length).toBe(2);
   });
+
+  it("should draw random available tickets within maxParticipants range without collisions", () => {
+    const maxParticipants = 100;
+    const usedTickets = new Set<number>([1, 2, 3, 50, 99]);
+
+    const available: number[] = [];
+    for (let i = 1; i <= maxParticipants; i++) {
+      if (!usedTickets.has(i)) {
+        available.push(i);
+      }
+    }
+
+    expect(available.length).toBe(95);
+    expect(available.includes(1)).toBe(false);
+    expect(available.includes(50)).toBe(false);
+
+    // Pick 10 random tickets
+    const picked: number[] = [];
+    for (let j = 0; j < 10; j++) {
+      const idx = LotteryService.getRandomIndex(available.length);
+      const ticket = available[idx];
+      expect(ticket).toBeGreaterThanOrEqual(1);
+      expect(ticket).toBeLessThanOrEqual(100);
+      expect(usedTickets.has(ticket)).toBe(false);
+      picked.push(ticket);
+    }
+    expect(picked.length).toBe(10);
+  });
 });

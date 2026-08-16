@@ -78,6 +78,7 @@ export default function EventsListPage() {
     coverUrl: "",
     status: "ACTIVE",
     allowRepeatWinners: false,
+    maxParticipants: "",
   });
 
   const fetchEvents = async (silent = false) => {
@@ -122,7 +123,10 @@ export default function EventsListPage() {
       const res = await fetch("/api/events", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          ...formData,
+          maxParticipants: formData.maxParticipants ? parseInt(String(formData.maxParticipants), 10) : null,
+        }),
       });
 
       const data = await res.json();
@@ -141,6 +145,7 @@ export default function EventsListPage() {
         coverUrl: "",
         status: "ACTIVE",
         allowRepeatWinners: false,
+        maxParticipants: "",
       });
       fetchEvents();
     } catch (err: any) {
@@ -403,13 +408,28 @@ export default function EventsListPage() {
             </div>
           </div>
 
-          <div>
-            <Label>Local / Espaço no Campus</Label>
-            <Input
-              placeholder="Ex: Auditório Principal - Bloco A"
-              value={formData.location}
-              onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-            />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <Label>Capacidade Máx. de Participantes</Label>
+              <Input
+                type="number"
+                min="1"
+                placeholder="Ex: 100, 200, 500"
+                value={formData.maxParticipants}
+                onChange={(e) => setFormData({ ...formData, maxParticipants: e.target.value })}
+              />
+              <p className="text-[11px] text-slate-500 mt-1">
+                Os bilhetes do QR Code serão gerados aleatoriamente dentro deste intervalo.
+              </p>
+            </div>
+            <div>
+              <Label>Local / Espaço no Campus</Label>
+              <Input
+                placeholder="Ex: Auditório Principal - Bloco A"
+                value={formData.location}
+                onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+              />
+            </div>
           </div>
 
           <div>

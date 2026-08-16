@@ -1,18 +1,56 @@
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
+import crypto from "crypto";
 
 export class ParticipantService {
   /**
-   * Generates the next sequential ticket number for an event
+   * Generates a random available (non-sequential) ticket number for an event
+   * within [1..maxParticipants] or dynamic range.
    */
-  public static async getNextTicketNumber(eventId: string): Promise<number> {
-    const highest = await prisma.participant.findFirst({
+  public static async getRandomAvailableTicketNumber(eventId: string): Promise<number> {
+    const event = await prisma.event.findUnique({
+      where: { id: eventId },
+      select: { maxParticipants: true },
+    });
+
+    const existing = await prisma.participant.findMany({
       where: { eventId },
-      orderBy: { ticketNumber: "desc" },
       select: { ticketNumber: true },
     });
 
-    return (highest?.ticketNumber ?? 0) + 1;
+    const usedSet = new Set(existing.map((p) => p.ticketNumber));
+    const max =
+      event?.maxParticipants && event.maxParticipants > 0
+        ? event.maxParticipants
+        : Math.max(1000, existing.length + 100);
+
+    const available: number[] = [];
+    for (let i = 1; i <= max; i++) {
+      if (!usedSet.has(i)) {
+        available.push(i);
+      }
+    }
+
+    if (available.length === 0) {
+      if (event?.maxParticipants) {
+        throw new Error(
+          `O limite máximo de ${event.maxParticipants} participantes para este evento foi atingido.`
+        );
+      }
+      let next = max + 1;
+      while (usedSet.has(next)) next++;
+      return next;
+    }
+
+    const randomIndex = crypto.randomInt(0, available.length);
+    return available[randomIndex];
+  }
+
+  /**
+   * Legacy alias fallback pointing to random available number
+   */
+  public static async getNextTicketNumber(eventId: string): Promise<number> {
+    return this.getRandomAvailableTicketNumber(eventId);
   }
 
   /**
@@ -63,27 +101,40 @@ export class ParticipantService {
     if (event?.maxParticipants) {
       const currentCount = await prisma.participant.count({ where: { eventId } });
       if (currentCount >= event.maxParticipants) {
-        throw new Error("O limite máximo de participantes para este evento foi atingido.");
+        throw new Error(`O limite máximo de ${event.maxParticipants} participantes para este evento foi atingido.`);
       }
     }
 
-    const ticketNumber = await this.getNextTicketNumber(eventId);
+    let participant = null;
+    let attempts = 0;
 
-    const participant = await prisma.participant.create({
-      data: {
-        eventId,
-        name: name.trim(),
-        cpf: cpf ? cpf.replace(/\D/g, "") : null,
-        registration: registration ? registration.trim() : null,
-        email: email ? email.trim().toLowerCase() : null,
-        phone: phone ? phone.trim() : null,
-        category: category ? category.trim() : "Geral",
-        ticketNumber,
-        isEligible,
-      },
-    });
+    while (!participant && attempts < 5) {
+      attempts++;
+      const ticketNumber = await this.getRandomAvailableTicketNumber(eventId);
 
-    return participant;
+      try {
+        participant = await prisma.participant.create({
+          data: {
+            eventId,
+            name: name.trim(),
+            cpf: cpf ? cpf.replace(/\D/g, "") : null,
+            registration: registration ? registration.trim() : null,
+            email: email ? email.trim().toLowerCase() : null,
+            phone: phone ? phone.trim() : null,
+            category: category ? category.trim() : "Geral",
+            ticketNumber,
+            isEligible,
+          },
+        });
+      } catch (err: any) {
+        if (err.code === "P2002" && attempts < 5) {
+          continue;
+        }
+        throw err;
+      }
+    }
+
+    return participant!;
   }
 
   /**

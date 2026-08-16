@@ -24,6 +24,9 @@ Plataforma corporativa e institucional desenvolvida sob medida para o gerenciame
 5. **Componente Centralizado `<BrandLogo>` & Paleta de Cores**:
    - `<BrandLogo variant="default" | "white" | "square" />` com fallback gracioso para wordmark temporário.
    - Documentação de tokens de cor em `src/lib/theme/unifap-colors.ts`.
+6. **Capacidade Máxima & Distribuição Aleatória de Bilhetes (QR Code)**:
+   - Configuração de `Capacidade Máx. de Participantes` (`maxParticipants`) nos formulários de criação e edição de eventos.
+   - Bilhetes não-sequenciais: quem se cadastra pelo formulário público do QR Code recebe um Número da Sorte sorteado aleatoriamente (CSPRNG) entre os números ainda livres no intervalo do evento.
 
 ---
 

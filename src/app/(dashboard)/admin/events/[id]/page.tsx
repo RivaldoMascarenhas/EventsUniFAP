@@ -163,6 +163,7 @@ export default function SingleEventPage({ params }: { params: Promise<{ id: stri
     location: "",
     status: "ACTIVE",
     allowRepeatWinners: false,
+    maxParticipants: "",
     logoUrl: "",
   });
 
@@ -177,6 +178,7 @@ export default function SingleEventPage({ params }: { params: Promise<{ id: stri
       location: event.location || "",
       status: event.status || "ACTIVE",
       allowRepeatWinners: !!event.allowRepeatWinners,
+      maxParticipants: event.maxParticipants !== null && event.maxParticipants !== undefined ? String(event.maxParticipants) : "",
       logoUrl: event.logoUrl || event.coverUrl || "",
     });
     setIsEditEventModalOpen(true);
@@ -197,6 +199,7 @@ export default function SingleEventPage({ params }: { params: Promise<{ id: stri
         body: JSON.stringify({
           ...editFormData,
           date: editFormData.date ? editFormData.date : null,
+          maxParticipants: editFormData.maxParticipants ? parseInt(String(editFormData.maxParticipants), 10) : null,
           coverUrl: editFormData.logoUrl,
         }),
       });
@@ -556,10 +559,16 @@ export default function SingleEventPage({ params }: { params: Promise<{ id: stri
               )}
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 p-4 rounded-xl bg-slate-50 border border-slate-100">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 p-4 rounded-xl bg-slate-50 border border-slate-100">
                 <div>
                   <div className="text-[10px] uppercase font-bold text-slate-400">Status</div>
                   <div className="mt-1"><StatusBadge status={event.status} /></div>
+                </div>
+                <div>
+                  <div className="text-[10px] uppercase font-bold text-slate-400">Capacidade Máxima</div>
+                  <div className="text-xs font-bold text-slate-800 mt-1">
+                    {event.maxParticipants ? `${event.maxParticipants} vagas` : "Ilimitada"}
+                  </div>
                 </div>
                 <div>
                   <div className="text-[10px] uppercase font-bold text-slate-400">Repetição de Ganhadores</div>
@@ -569,7 +578,7 @@ export default function SingleEventPage({ params }: { params: Promise<{ id: stri
                 </div>
                 <div>
                   <div className="text-[10px] uppercase font-bold text-slate-400">Slug Oficial</div>
-                  <div className="text-xs font-mono font-bold text-unifap-navy mt-1">{event.slug}</div>
+                  <div className="text-xs font-mono font-bold text-unifap-navy mt-1 truncate">{event.slug}</div>
                 </div>
               </div>
 
@@ -1494,13 +1503,28 @@ export default function SingleEventPage({ params }: { params: Promise<{ id: stri
             </div>
           </div>
 
-          <div>
-            <Label>Local / Campus</Label>
-            <Input
-              placeholder="Ex: Auditório Principal — Campus UniFAP Juazeiro do Norte"
-              value={editFormData.location}
-              onChange={(e) => setEditFormData({ ...editFormData, location: e.target.value })}
-            />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <Label>Capacidade Máx. de Participantes</Label>
+              <Input
+                type="number"
+                min="1"
+                placeholder="Ex: 100, 200, 500"
+                value={editFormData.maxParticipants}
+                onChange={(e) => setEditFormData({ ...editFormData, maxParticipants: e.target.value })}
+              />
+              <p className="text-[11px] text-slate-500 mt-1">
+                Os bilhetes do QR Code serão gerados aleatoriamente dentro deste intervalo.
+              </p>
+            </div>
+            <div>
+              <Label>Local / Campus</Label>
+              <Input
+                placeholder="Ex: Auditório Principal — Campus UniFAP Juazeiro do Norte"
+                value={editFormData.location}
+                onChange={(e) => setEditFormData({ ...editFormData, location: e.target.value })}
+              />
+            </div>
           </div>
 
           <div>
