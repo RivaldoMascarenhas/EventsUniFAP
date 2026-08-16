@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
+import { useSession } from "next-auth/react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -50,6 +51,11 @@ interface EventItem {
 }
 
 export default function EventsListPage() {
+  const { data: session } = useSession();
+  const isAdmin = session?.user?.role === "ADMIN";
+  const isOperator = session?.user?.role === "OPERATOR";
+  const isPresenter = session?.user?.role === "PRESENTER";
+
   const { success, error } = useToast();
   const [events, setEvents] = useState<EventItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -180,13 +186,15 @@ export default function EventsListPage() {
         title="Eventos Institucionais"
         subtitle="Gerenciamento de conferências, semanas acadêmicas e sorteios"
         actions={
-          <Button
-            variant="primary"
-            leftIcon={<Plus className="w-4 h-4" />}
-            onClick={() => setIsModalOpen(true)}
-          >
-            Criar Novo Evento
-          </Button>
+          isAdmin ? (
+            <Button
+              variant="primary"
+              leftIcon={<Plus className="w-4 h-4" />}
+              onClick={() => setIsModalOpen(true)}
+            >
+              Criar Novo Evento
+            </Button>
+          ) : undefined
         }
       />
 
@@ -231,12 +239,14 @@ export default function EventsListPage() {
           description={
             search || statusFilter !== "ALL"
               ? "Tente ajustar seus filtros de busca."
-              : "Comece criando o primeiro evento de sorteio institucional da UniFAP."
+              : "Nenhum evento cadastrado no momento."
           }
           action={
-            <Button variant="primary" onClick={() => setIsModalOpen(true)}>
-              Criar Primeiro Evento
-            </Button>
+            isAdmin ? (
+              <Button variant="primary" onClick={() => setIsModalOpen(true)}>
+                Criar Primeiro Evento
+              </Button>
+            ) : undefined
           }
         />
       ) : (
@@ -284,31 +294,36 @@ export default function EventsListPage() {
                 <div className="flex items-center gap-2 pt-1">
                   <Link href={`/admin/events/${ev.id}`} className="flex-1">
                     <Button variant="outline" size="sm" className="w-full text-xs">
-                      Gerenciar
+                      {isPresenter ? "Ver Detalhes" : "Gerenciar"}
                     </Button>
                   </Link>
 
-                  <Link href={`/admin/events/${ev.id}/draw`}>
-                    <Button variant="gold" size="sm" className="px-2.5" title="Operar Sorteio">
-                      <PlayCircle className="w-4 h-4" />
-                    </Button>
-                  </Link>
+                  {!isPresenter && (
+                    <Link href={`/admin/events/${ev.id}/draw`}>
+                      <Button variant="gold" size="sm" className="px-2.5" title="Operar Sorteio">
+                        <PlayCircle className="w-4 h-4" />
+                      </Button>
+                    </Link>
+                  )}
 
-                  <Link href={`/presentation/${ev.id}`} target="_blank">
-                    <Button variant="secondary" size="sm" className="px-2.5" title="Abrir Telão 4K">
+                  <Link href={`/presentation/${ev.id}`} target="_blank" className={isPresenter ? "flex-1" : undefined}>
+                    <Button variant={isPresenter ? "primary" : "secondary"} size="sm" className={isPresenter ? "w-full text-xs" : "px-2.5"} title="Abrir Telão 4K">
                       <Tv className="w-4 h-4" />
+                      {isPresenter && <span className="ml-1.5 font-bold">Abrir Telão 4K</span>}
                     </Button>
                   </Link>
 
-                  <Button
-                    variant="danger"
-                    size="sm"
-                    className="px-2.5 bg-rose-50 text-rose-600 hover:bg-rose-100 hover:text-rose-700 border border-rose-200"
-                    title="Excluir Evento"
-                    onClick={() => setEventToDelete(ev)}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
+                  {isAdmin && (
+                    <Button
+                      variant="danger"
+                      size="sm"
+                      className="px-2.5 bg-rose-50 text-rose-600 hover:bg-rose-100 hover:text-rose-700 border border-rose-200"
+                      title="Excluir Evento"
+                      onClick={() => setEventToDelete(ev)}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  )}
                 </div>
               </CardContent>
             </Card>

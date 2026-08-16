@@ -47,8 +47,8 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session || (session.user.role !== "ADMIN" && session.user.role !== "OPERATOR")) {
-      return NextResponse.json({ error: "Acesso restrito a administradores e operadores" }, { status: 403 });
+    if (!session || session.user.role !== "ADMIN") {
+      return NextResponse.json({ error: "Apenas administradores podem criar novos eventos" }, { status: 403 });
     }
 
     const body = await req.json();

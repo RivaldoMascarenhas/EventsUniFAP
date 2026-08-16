@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
+import { useSession } from "next-auth/react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -26,6 +27,11 @@ import { formatDate, formatDateTime, padNumber } from "@/lib/utils";
 import { getSupabaseBrowserClient } from "@/lib/supabaseClient";
 
 export default function AdminDashboardPage() {
+  const { data: session } = useSession();
+  const isAdmin = session?.user?.role === "ADMIN";
+  const isOperator = session?.user?.role === "OPERATOR";
+  const isPresenter = session?.user?.role === "PRESENTER";
+
   const { success, error } = useToast();
   const [data, setData] = useState<{
     metrics: {
@@ -143,11 +149,13 @@ export default function AdminDashboardPage() {
               <span>{isRefreshing ? "Atualizando..." : "Atualizar"}</span>
             </button>
 
-            <Link href="/admin/events">
-              <Button variant="primary" leftIcon={<Plus className="w-4 h-4" />}>
-                Novo Evento
-              </Button>
-            </Link>
+            {isAdmin && (
+              <Link href="/admin/events">
+                <Button variant="primary" leftIcon={<Plus className="w-4 h-4" />}>
+                  Novo Evento
+                </Button>
+              </Link>
+            )}
           </div>
         }
       />
@@ -218,7 +226,7 @@ export default function AdminDashboardPage() {
             </div>
             <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
               <span>Execuções registradas</span>
-              <span className="font-semibold text-emerald-600">Auditado</span>
+              <span className="font-semibold text-slate-700">Auditadas</span>
             </div>
           </CardContent>
         </Card>
@@ -229,7 +237,7 @@ export default function AdminDashboardPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                  Ganhadores
+                  Total de Ganhadores
                 </p>
                 <h3 className="text-3xl font-extrabold text-unifap-navy mt-1">
                   {isLoading ? "..." : metrics.totalWinners}
@@ -240,15 +248,15 @@ export default function AdminDashboardPage() {
               </div>
             </div>
             <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
-              <span>Prêmios distribuídos</span>
-              <span className="font-semibold text-slate-700">Oficial</span>
+              <span>Alunos contemplados</span>
+              <span className="font-semibold text-slate-700">UniFAP</span>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Main Grid: Latest Events and Recent Draws */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      {/* Main Grid: Events & Recent Winners */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Events Column */}
         <div className="lg:col-span-2 space-y-4">
           <div className="flex items-center justify-between">
@@ -260,29 +268,33 @@ export default function AdminDashboardPage() {
               href="/admin/events"
               className="text-xs font-bold text-unifap-blue hover:text-unifap-navy flex items-center gap-1 transition"
             >
-              <span>Ver todos ({metrics.totalEvents})</span>
+              <span>Ver todos</span>
               <ArrowUpRight className="w-3.5 h-3.5" />
             </Link>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {latestEvents.length === 0 ? (
-              <div className="col-span-2 p-8 text-center bg-white rounded-2xl border border-slate-200 text-xs text-slate-400">
-                Nenhum evento cadastrado ainda.
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {isLoading ? (
+              <div className="col-span-2 py-12 text-center text-slate-400">Carregando eventos...</div>
+            ) : !data?.latestEvents || data.latestEvents.length === 0 ? (
+              <div className="col-span-2 py-12 text-center text-slate-400 bg-white rounded-2xl border border-slate-200">
+                Nenhum evento cadastrado no sistema.
               </div>
             ) : (
-              latestEvents.map((ev) => (
-                <Card key={ev.id} className="hover:border-unifap-blue/40 flex flex-col justify-between">
-                  <CardHeader className="pb-3">
-                    <div className="flex items-start justify-between gap-2 mb-2">
+              data.latestEvents.map((ev) => (
+                <Card key={ev.id} className="hover:border-unifap-blue/40 transition flex flex-col justify-between">
+                  <CardContent className="p-5">
+                    <div className="flex items-center justify-between mb-2">
                       <StatusBadge status={ev.status} />
-                      <span className="text-[11px] text-slate-400 font-medium">{formatDate(ev.date)}</span>
+                      <span className="text-xs text-slate-400">{formatDate(ev.date)}</span>
                     </div>
-                    <CardTitle className="text-base line-clamp-1">{ev.name}</CardTitle>
-                  </CardHeader>
 
-                  <CardContent className="pt-0">
-                    <div className="grid grid-cols-3 gap-2 py-3 border-y border-slate-100 text-center my-2">
+                    <h3 className="font-bold text-unifap-navy text-base line-clamp-1">{ev.name}</h3>
+                    <p className="text-xs text-slate-500 line-clamp-1 mt-1">
+                      {ev.location || "UniFAP Juazeiro do Norte"}
+                    </p>
+
+                    <div className="grid grid-cols-3 gap-2 py-3 border-y border-slate-100 text-center my-3 bg-slate-50/50 rounded-xl">
                       <div>
                         <div className="text-xs text-slate-400 font-medium">Inscritos</div>
                         <div className="text-sm font-bold text-slate-800">{ev._count?.participants || 0}</div>
@@ -300,28 +312,36 @@ export default function AdminDashboardPage() {
                     <div className="flex items-center gap-2 mt-4">
                       <Link href={`/admin/events/${ev.id}`} className="flex-1">
                         <Button variant="outline" size="sm" className="w-full text-xs">
-                          Gerenciar
+                          {isPresenter ? "Ver Detalhes" : "Gerenciar"}
                         </Button>
                       </Link>
-                      <Link href={`/admin/events/${ev.id}/draw`}>
-                        <Button variant="gold" size="sm" className="px-2.5" title="Operar Sorteio">
-                          <PlayCircle className="w-4 h-4" />
-                        </Button>
-                      </Link>
-                      <Link href={`/presentation/${ev.id}`} target="_blank">
-                        <Button variant="secondary" size="sm" className="px-2.5" title="Abrir Telão 4K">
+
+                      {!isPresenter && (
+                        <Link href={`/admin/events/${ev.id}/draw`}>
+                          <Button variant="gold" size="sm" className="px-2.5" title="Operar Sorteio">
+                            <PlayCircle className="w-4 h-4" />
+                          </Button>
+                        </Link>
+                      )}
+
+                      <Link href={`/presentation/${ev.id}`} target="_blank" className={isPresenter ? "flex-1" : undefined}>
+                        <Button variant={isPresenter ? "primary" : "secondary"} size="sm" className={isPresenter ? "w-full text-xs" : "px-2.5"} title="Abrir Telão 4K">
                           <Tv className="w-4 h-4" />
+                          {isPresenter && <span className="ml-1.5 font-bold">Telão 4K</span>}
                         </Button>
                       </Link>
-                      <Button
-                        variant="danger"
-                        size="sm"
-                        className="px-2.5 bg-rose-50 text-rose-600 hover:bg-rose-100 hover:text-rose-700 border border-rose-200"
-                        title="Excluir Evento"
-                        onClick={() => setEventToDelete(ev)}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
+
+                      {isAdmin && (
+                        <Button
+                          variant="danger"
+                          size="sm"
+                          className="px-2.5 bg-rose-50 text-rose-600 hover:bg-rose-100 hover:text-rose-700 border border-rose-200"
+                          title="Excluir Evento"
+                          onClick={() => setEventToDelete(ev)}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      )}
                     </div>
                   </CardContent>
                 </Card>

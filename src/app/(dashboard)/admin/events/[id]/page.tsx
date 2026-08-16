@@ -3,6 +3,7 @@
 import React, { useState, useEffect, use } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -42,6 +43,11 @@ import Image from "next/image";
 export default function SingleEventPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router = useRouter();
+  const { data: session } = useSession();
+  const isAdmin = session?.user?.role === "ADMIN";
+  const isOperator = session?.user?.role === "OPERATOR";
+  const isPresenter = session?.user?.role === "PRESENTER";
+
   const { success, error, info } = useToast();
 
   const [event, setEvent] = useState<any>(null);
@@ -466,30 +472,39 @@ export default function SingleEventPage({ params }: { params: Promise<{ id: stri
         subtitle={`${formatDate(event.date)} ${event.time ? `às ${event.time}` : ""} • ${event.location || "UniFAP"}`}
         actions={
           <div className="flex flex-wrap items-center gap-2">
-            <Button
-              variant="outline"
-              leftIcon={<Edit className="w-4 h-4" />}
-              onClick={handleOpenEditModal}
-            >
-              Editar Evento
-            </Button>
-            <Link href={`/admin/events/${event.id}/draw`}>
-              <Button variant="gold" leftIcon={<PlayCircle className="w-4 h-4" />}>
-                Operar Sorteio
+            {isAdmin && (
+              <Button
+                variant="outline"
+                leftIcon={<Edit className="w-4 h-4" />}
+                onClick={handleOpenEditModal}
+              >
+                Editar Evento
               </Button>
-            </Link>
+            )}
+
+            {!isPresenter && (
+              <Link href={`/admin/events/${event.id}/draw`}>
+                <Button variant="gold" leftIcon={<PlayCircle className="w-4 h-4" />}>
+                  Operar Sorteio
+                </Button>
+              </Link>
+            )}
+
             <Link href={`/presentation/${event.id}`} target="_blank">
               <Button variant="primary" leftIcon={<Tv className="w-4 h-4" />}>
                 Telão 4K
               </Button>
             </Link>
-            <Button
-              variant="danger"
-              leftIcon={<Trash2 className="w-4 h-4" />}
-              onClick={() => setIsDeleteModalOpen(true)}
-            >
-              Excluir
-            </Button>
+
+            {isAdmin && (
+              <Button
+                variant="danger"
+                leftIcon={<Trash2 className="w-4 h-4" />}
+                onClick={() => setIsDeleteModalOpen(true)}
+              >
+                Excluir
+              </Button>
+            )}
           </div>
         }
       />
@@ -528,14 +543,16 @@ export default function SingleEventPage({ params }: { params: Promise<{ id: stri
           <Card className="lg:col-span-2">
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle>Informações do Evento</CardTitle>
-              <Button
-                variant="outline"
-                size="sm"
-                leftIcon={<Edit className="w-3.5 h-3.5" />}
-                onClick={handleOpenEditModal}
-              >
-                Editar Dados
-              </Button>
+              {isAdmin && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  leftIcon={<Edit className="w-3.5 h-3.5" />}
+                  onClick={handleOpenEditModal}
+                >
+                  Editar Dados
+                </Button>
+              )}
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 p-4 rounded-xl bg-slate-50 border border-slate-100">
@@ -673,20 +690,24 @@ export default function SingleEventPage({ params }: { params: Promise<{ id: stri
                 Como deve ser o CSV?
               </Button>
 
-              <Button
-                variant="outline"
-                leftIcon={<Upload className="w-4 h-4" />}
-                onClick={() => setIsImportModalOpen(true)}
-              >
-                Importar CSV / Excel
-              </Button>
-              <Button
-                variant="primary"
-                leftIcon={<Plus className="w-4 h-4" />}
-                onClick={() => setIsAddParticipantModalOpen(true)}
-              >
-                Adicionar Manual
-              </Button>
+              {!isPresenter && (
+                <>
+                  <Button
+                    variant="outline"
+                    leftIcon={<Upload className="w-4 h-4" />}
+                    onClick={() => setIsImportModalOpen(true)}
+                  >
+                    Importar CSV / Excel
+                  </Button>
+                  <Button
+                    variant="primary"
+                    leftIcon={<Plus className="w-4 h-4" />}
+                    onClick={() => setIsAddParticipantModalOpen(true)}
+                  >
+                    Adicionar Manual
+                  </Button>
+                </>
+              )}
             </div>
           </div>
 
@@ -749,13 +770,15 @@ export default function SingleEventPage({ params }: { params: Promise<{ id: stri
             <h3 className="text-sm font-bold text-unifap-navy uppercase tracking-wider">
               Prêmios Cadastrados para este Evento
             </h3>
-            <Button
-              variant="primary"
-              leftIcon={<Plus className="w-4 h-4" />}
-              onClick={() => setIsAddPrizeModalOpen(true)}
-            >
-              Novo Prêmio
-            </Button>
+            {!isPresenter && (
+              <Button
+                variant="primary"
+                leftIcon={<Plus className="w-4 h-4" />}
+                onClick={() => setIsAddPrizeModalOpen(true)}
+              >
+                Novo Prêmio
+              </Button>
+            )}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -793,26 +816,28 @@ export default function SingleEventPage({ params }: { params: Promise<{ id: stri
                   </div>
 
                   {/* Actions */}
-                  <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="flex-1 text-xs"
-                      onClick={() => handleOpenEditPrize(prize)}
-                      leftIcon={<Edit className="w-3.5 h-3.5" />}
-                    >
-                      Editar
-                    </Button>
-                    <Button
-                      variant="danger"
-                      size="sm"
-                      className="px-3 bg-rose-50 text-rose-600 hover:bg-rose-100 hover:text-rose-700 border border-rose-200"
-                      title="Excluir Prêmio"
-                      onClick={() => setPrizeToDelete(prize)}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </div>
+                  {!isPresenter && (
+                    <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex-1 text-xs"
+                        onClick={() => handleOpenEditPrize(prize)}
+                        leftIcon={<Edit className="w-3.5 h-3.5" />}
+                      >
+                        Editar
+                      </Button>
+                      <Button
+                        variant="danger"
+                        size="sm"
+                        className="px-3 bg-rose-50 text-rose-600 hover:bg-rose-100 hover:text-rose-700 border border-rose-200"
+                        title="Excluir Prêmio"
+                        onClick={() => setPrizeToDelete(prize)}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             ))}
@@ -840,27 +865,29 @@ export default function SingleEventPage({ params }: { params: Promise<{ id: stri
             </div>
 
             <div className="flex flex-wrap items-center gap-3 pt-2">
-              <Button
-                variant="gold"
-                onClick={async () => {
-                  try {
-                    await fetch(`/api/events/${event.id}/realtime`, {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({
-                        type: "qr:show",
-                        state: "SHOWING_QR_CODE",
-                      }),
-                    });
-                    success("Telão 4K", "QR Code de inscrição projetado no telão!");
-                  } catch {
-                    error("Erro", "Falha ao enviar comando para o telão.");
-                  }
-                }}
-                leftIcon={<Sparkles className="w-4 h-4 text-slate-950" />}
-              >
-                Projetar no Telão 4K
-              </Button>
+              {!isPresenter && (
+                <Button
+                  variant="gold"
+                  onClick={async () => {
+                    try {
+                      await fetch(`/api/events/${event.id}/realtime`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                          type: "qr:show",
+                          state: "SHOWING_QR_CODE",
+                        }),
+                      });
+                      success("Telão 4K", "QR Code de inscrição projetado no telão!");
+                    } catch {
+                      error("Erro", "Falha ao enviar comando para o telão.");
+                    }
+                  }}
+                  leftIcon={<Sparkles className="w-4 h-4 text-slate-950" />}
+                >
+                  Projetar no Telão 4K
+                </Button>
+              )}
 
               <Button variant="primary" onClick={copyPublicUrl} leftIcon={<Copy className="w-4 h-4" />}>
                 Copiar Link

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { useSession } from "next-auth/react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -38,6 +39,10 @@ interface SponsorItem {
 }
 
 export default function SponsorsPage() {
+  const { data: session } = useSession();
+  const isAdmin = session?.user?.role === "ADMIN";
+  const isPresenter = session?.user?.role === "PRESENTER";
+
   const { success, error } = useToast();
   const [sponsors, setSponsors] = useState<SponsorItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -151,9 +156,11 @@ export default function SponsorsPage() {
         title="Patrocinadores Oficiais"
         subtitle="Empresas parceiras e marcas apoiadoras dos eventos da UniFAP"
         actions={
-          <Button variant="primary" leftIcon={<Plus className="w-4 h-4" />} onClick={handleOpenCreateModal}>
-            Novo Patrocinador
-          </Button>
+          !isPresenter ? (
+            <Button variant="primary" leftIcon={<Plus className="w-4 h-4" />} onClick={handleOpenCreateModal}>
+              Novo Patrocinador
+            </Button>
+          ) : undefined
         }
       />
 
@@ -173,9 +180,11 @@ export default function SponsorsPage() {
           title="Nenhum patrocinador cadastrado"
           description="Cadastre marcas e apoiadores para associá-los aos prêmios dos sorteios."
           action={
-            <Button variant="primary" onClick={handleOpenCreateModal}>
-              Cadastrar Primeiro Patrocinador
-            </Button>
+            !isPresenter ? (
+              <Button variant="primary" onClick={handleOpenCreateModal}>
+                Cadastrar Primeiro Patrocinador
+              </Button>
+            ) : undefined
           }
         />
       ) : (
@@ -196,13 +205,15 @@ export default function SponsorsPage() {
                       <Trophy className="w-3.5 h-3.5 text-unifap-gold" />
                       <span>{s._count.prizes} prêmio(s)</span>
                     </div>
-                    <button
-                      onClick={() => handleOpenEditModal(s)}
-                      className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:text-unifap-navy hover:bg-slate-50 transition"
-                      title="Editar Patrocinador"
-                    >
-                      <Edit2 className="w-3.5 h-3.5" />
-                    </button>
+                    {!isPresenter && (
+                      <button
+                        onClick={() => handleOpenEditModal(s)}
+                        className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:text-unifap-navy hover:bg-slate-50 transition"
+                        title="Editar Patrocinador"
+                      >
+                        <Edit2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
                   </div>
                 </div>
 

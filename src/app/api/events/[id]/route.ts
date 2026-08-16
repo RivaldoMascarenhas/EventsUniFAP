@@ -56,8 +56,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session || (session.user.role !== "ADMIN" && session.user.role !== "OPERATOR")) {
-      return NextResponse.json({ error: "Não autorizado" }, { status: 403 });
+    if (!session || session.user.role !== "ADMIN") {
+      return NextResponse.json({ error: "Apenas administradores podem editar configurações de eventos" }, { status: 403 });
     }
 
     const { id } = await params;
@@ -101,8 +101,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session || (session.user.role !== "ADMIN" && session.user.role !== "OPERATOR")) {
-      return NextResponse.json({ error: "Apenas administradores e operadores podem excluir eventos" }, { status: 403 });
+    if (!session || session.user.role !== "ADMIN") {
+      return NextResponse.json({ error: "Apenas administradores podem excluir eventos" }, { status: 403 });
     }
 
     const { id } = await params;
