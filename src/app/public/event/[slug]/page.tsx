@@ -56,20 +56,23 @@ export default function PublicEventRegistrationPage({ params }: { params: Promis
 
   useEffect(() => {
     async function loadEvent() {
+      if (!slug) return;
       try {
         setIsLoading(true);
-        // Find event by slug
-        const res = await fetch("/api/events");
+        // Find public event details by slug
+        const res = await fetch(`/api/public/events/${slug}`, {
+          cache: "no-store",
+        });
         if (res.ok) {
-          const events = await res.json();
-          const found = events.find((e: any) => e.slug === slug);
-          if (found) {
-            setEvent(found);
-            setValue("eventId", found.id);
-          }
+          const found = await res.json();
+          setEvent(found);
+          setValue("eventId", found.id);
+        } else {
+          setEvent(null);
         }
       } catch (err) {
         console.error(err);
+        setEvent(null);
       } finally {
         setIsLoading(false);
       }
