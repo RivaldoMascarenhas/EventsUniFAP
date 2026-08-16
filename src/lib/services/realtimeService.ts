@@ -115,8 +115,54 @@ class RealtimeService {
             });
           }
         });
+
+        // Also notify global admin dashboard of live draw state change
+        const adminCh = supabase.channel("admin_dashboard_sync");
+        adminCh.subscribe((status) => {
+          if (status === "SUBSCRIBED") {
+            adminCh.send({
+              type: "broadcast",
+              event: "dashboard_update",
+              payload: { type: "draw", eventId, timestamp: Date.now() },
+            }).finally(() => {
+              supabase.removeChannel(adminCh);
+            });
+          }
+        });
       } catch (sbErr) {
         console.warn("[RealtimeService] Supabase broadcast error:", sbErr);
+      }
+    }
+  }
+
+  /**
+   * Broadcasts a lightweight invalidation signal to all open admin dashboards via Supabase Realtime WebSocket
+   */
+  public async broadcastGlobalUpdate(event: { type: string; eventId?: string; metadata?: any }) {
+    return RealtimeService.broadcastGlobalUpdate(event);
+  }
+
+  public static async broadcastGlobalUpdate(event: { type: string; eventId?: string; metadata?: any }) {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+    if (supabaseUrl && supabaseKey) {
+      try {
+        const supabase = createClient(supabaseUrl, supabaseKey);
+        const adminCh = supabase.channel("admin_dashboard_sync");
+        adminCh.subscribe((status) => {
+          if (status === "SUBSCRIBED") {
+            adminCh.send({
+              type: "broadcast",
+              event: "dashboard_update",
+              payload: { ...event, timestamp: Date.now() },
+            }).finally(() => {
+              supabase.removeChannel(adminCh);
+            });
+          }
+        });
+      } catch (sbErr) {
+        console.warn("[RealtimeService] Global broadcast error:", sbErr);
       }
     }
   }

@@ -4,6 +4,7 @@ import { ParticipantService } from "@/lib/services/participantService";
 import { publicRegistrationSchema } from "@/lib/validations";
 import { isValidCPF } from "@/lib/utils";
 import { rateLimiter } from "@/lib/security/rateLimiter";
+import { realtimeService } from "@/lib/services/realtimeService";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -112,6 +113,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       category: validated.category || "Aluno de Graduação",
       isEligible: true,
     });
+
+    // Notify open admin dashboards in realtime via WebSocket
+    realtimeService.broadcastGlobalUpdate({
+      type: "participant:registered",
+      eventId: event.id,
+    }).catch(() => {});
 
     return NextResponse.json(
       {

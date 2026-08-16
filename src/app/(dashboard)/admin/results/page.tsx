@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/Card";
 import { LoadingState } from "@/components/layout/EmptyState";
 import { formatDateTime, maskCPF, padNumber } from "@/lib/utils";
 import { RefreshCw } from "lucide-react";
+import { getSupabaseBrowserClient } from "@/lib/supabaseClient";
 
 export default function ResultsHistoryPage() {
   const [draws, setDraws] = useState<any[]>([]);
@@ -33,16 +34,28 @@ export default function ResultsHistoryPage() {
   useEffect(() => {
     fetchResults();
 
-    // Auto-refresh when user focuses back on window
+    // 1. WebSocket Event-Driven Push (Instant sync when a draw happens)
+    const supabase = getSupabaseBrowserClient();
+    let channel: any = null;
+
+    if (supabase) {
+      channel = supabase.channel("admin_dashboard_sync");
+      channel
+        .on("broadcast", { event: "dashboard_update" }, () => {
+          fetchResults(true);
+        })
+        .subscribe();
+    }
+
+    // 2. Focus revalidation
     const handleFocus = () => fetchResults(true);
     window.addEventListener("focus", handleFocus);
 
-    // Auto-polling every 4 seconds
-    const interval = setInterval(() => fetchResults(true), 4000);
-
     return () => {
       window.removeEventListener("focus", handleFocus);
-      clearInterval(interval);
+      if (supabase && channel) {
+        supabase.removeChannel(channel);
+      }
     };
   }, []);
 

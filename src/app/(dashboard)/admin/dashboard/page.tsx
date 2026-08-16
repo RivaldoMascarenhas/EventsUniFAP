@@ -23,6 +23,7 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import { formatDate, formatDateTime, padNumber } from "@/lib/utils";
+import { getSupabaseBrowserClient } from "@/lib/supabaseClient";
 
 export default function AdminDashboardPage() {
   const { success, error } = useToast();
@@ -86,16 +87,28 @@ export default function AdminDashboardPage() {
   useEffect(() => {
     fetchDashboardData();
 
-    // Auto-refresh when user focuses back on window
+    // 1. WebSocket Event-Driven Push (Instant sync on QR scan, draw or event mutation)
+    const supabase = getSupabaseBrowserClient();
+    let channel: any = null;
+
+    if (supabase) {
+      channel = supabase.channel("admin_dashboard_sync");
+      channel
+        .on("broadcast", { event: "dashboard_update" }, () => {
+          fetchDashboardData(true);
+        })
+        .subscribe();
+    }
+
+    // 2. Focus re-validation when returning to the tab
     const handleFocus = () => fetchDashboardData(true);
     window.addEventListener("focus", handleFocus);
 
-    // Auto-polling every 4 seconds so metrics, winners, and events are always 100% up-to-date
-    const interval = setInterval(() => fetchDashboardData(true), 4000);
-
     return () => {
       window.removeEventListener("focus", handleFocus);
-      clearInterval(interval);
+      if (supabase && channel) {
+        supabase.removeChannel(channel);
+      }
     };
   }, []);
 
