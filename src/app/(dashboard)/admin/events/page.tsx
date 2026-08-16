@@ -70,22 +70,26 @@ export default function EventsListPage() {
     allowRepeatWinners: false,
   });
 
-  const fetchEvents = async () => {
+  const fetchEvents = async (silent = false) => {
     try {
-      setIsLoading(true);
-      const res = await fetch("/api/events");
+      if (!silent) setIsLoading(true);
+      const res = await fetch("/api/events", { cache: "no-store" });
       if (!res.ok) throw new Error("Falha ao carregar eventos");
       const data = await res.json();
       setEvents(data);
     } catch (err: any) {
-      error("Erro", err.message);
+      if (!silent) error("Erro", err.message);
     } finally {
-      setIsLoading(false);
+      if (!silent) setIsLoading(false);
     }
   };
 
   useEffect(() => {
     fetchEvents();
+
+    const handleFocus = () => fetchEvents(true);
+    window.addEventListener("focus", handleFocus);
+    return () => window.removeEventListener("focus", handleFocus);
   }, []);
 
   const handleNameChange = (name: string) => {

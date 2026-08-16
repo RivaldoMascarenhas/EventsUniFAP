@@ -6,6 +6,8 @@ import { eventSchema } from "@/lib/validations";
 import { AuditService } from "@/lib/services/auditService";
 import { AuditAction } from "@/lib/types/enums";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
@@ -31,7 +33,11 @@ export async function GET(req: NextRequest) {
       orderBy: { createdAt: "desc" },
     });
 
-    return NextResponse.json(events);
+    return NextResponse.json(events, {
+      headers: {
+        "Cache-Control": "no-store, max-age=0",
+      },
+    });
   } catch (error: any) {
     console.error("[GET /api/events]", error);
     return NextResponse.json({ error: error.message || "Erro ao listar eventos" }, { status: 500 });

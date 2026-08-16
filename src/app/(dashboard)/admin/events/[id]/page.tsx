@@ -169,13 +169,13 @@ export default function SingleEventPage({ params }: { params: Promise<{ id: stri
     }
   };
 
-  const fetchEventData = async () => {
+  const fetchEventData = async (silent = false) => {
     try {
-      setIsLoading(true);
+      if (!silent) setIsLoading(true);
       const [resEvent, resSponsors, resResults] = await Promise.all([
-        fetch(`/api/events/${id}`),
-        fetch("/api/sponsors"),
-        fetch(`/api/events/${id}/results`),
+        fetch(`/api/events/${id}`, { cache: "no-store" }),
+        fetch("/api/sponsors", { cache: "no-store" }),
+        fetch(`/api/events/${id}/results`, { cache: "no-store" }),
       ]);
 
       if (!resEvent.ok) throw new Error("Evento não encontrado");
@@ -199,15 +199,17 @@ export default function SingleEventPage({ params }: { params: Promise<{ id: stri
         setQrCodeDataUrl(qrUrl);
       }
     } catch (err: any) {
-      error("Erro", err.message);
+      if (!silent) error("Erro", err.message);
     } finally {
-      setIsLoading(false);
+      if (!silent) setIsLoading(false);
     }
   };
 
   const fetchParticipants = async () => {
     try {
-      const res = await fetch(`/api/events/${id}/participants?search=${encodeURIComponent(partSearch)}`);
+      const res = await fetch(`/api/events/${id}/participants?search=${encodeURIComponent(partSearch)}`, {
+        cache: "no-store",
+      });
       if (res.ok) {
         const data = await res.json();
         setParticipants(data.items || []);
@@ -220,11 +222,21 @@ export default function SingleEventPage({ params }: { params: Promise<{ id: stri
 
   useEffect(() => {
     fetchEventData();
+
+    const handleFocus = () => {
+      fetchEventData(true);
+      if (activeTab === "participants") fetchParticipants();
+    };
+
+    window.addEventListener("focus", handleFocus);
+    return () => window.removeEventListener("focus", handleFocus);
   }, [id]);
 
   useEffect(() => {
     if (activeTab === "participants") {
       fetchParticipants();
+    } else if (activeTab === "results" || activeTab === "prizes") {
+      fetchEventData(true);
     }
   }, [activeTab, partSearch]);
 

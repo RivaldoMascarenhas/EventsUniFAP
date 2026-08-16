@@ -1,6 +1,7 @@
-import React from "react";
+"use client";
+
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -13,53 +14,76 @@ import {
   Plus,
   PlayCircle,
   ArrowUpRight,
-  ExternalLink,
   History,
   Tv,
+  RefreshCw,
 } from "lucide-react";
 import { formatDate, formatDateTime, padNumber } from "@/lib/utils";
 
-export const dynamic = "force-dynamic";
+export default function AdminDashboardPage() {
+  const [data, setData] = useState<{
+    metrics: {
+      totalEvents: number;
+      activeEventsCount: number;
+      scheduledEventsCount: number;
+      finishedEventsCount: number;
+      totalParticipants: number;
+      totalDraws: number;
+      totalWinners: number;
+    };
+    latestEvents: any[];
+    latestDraws: any[];
+  } | null>(null);
 
-export default async function AdminDashboardPage() {
-  // Fetch high-level statistics in parallel
-  const [
-    totalEvents,
-    activeEventsCount,
-    scheduledEventsCount,
-    finishedEventsCount,
-    totalParticipants,
-    totalDraws,
-    totalWinners,
-    latestEvents,
-    latestDraws,
-  ] = await Promise.all([
-    prisma.event.count(),
-    prisma.event.count({ where: { status: "ACTIVE" } }),
-    prisma.event.count({ where: { status: "SCHEDULED" } }),
-    prisma.event.count({ where: { status: "FINISHED" } }),
-    prisma.participant.count(),
-    prisma.draw.count(),
-    prisma.winner.count(),
-    prisma.event.findMany({
-      orderBy: { createdAt: "desc" },
-      take: 4,
-      include: {
-        _count: {
-          select: { participants: true, prizes: true, winners: true },
-        },
-      },
-    }),
-    prisma.draw.findMany({
-      orderBy: { timestamp: "desc" },
-      take: 5,
-      include: {
-        event: { select: { id: true, name: true, slug: true } },
-        prize: { select: { name: true, sponsor: { select: { name: true } } } },
-        winnerParticipant: { select: { name: true, ticketNumber: true, category: true } },
-      },
-    }),
-  ]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const fetchDashboardData = async (silent = false) => {
+    try {
+      if (!silent) setIsLoading(true);
+      else setIsRefreshing(true);
+
+      const res = await fetch("/api/dashboard", { cache: "no-store" });
+      if (res.ok) {
+        const json = await res.json();
+        setData(json);
+      }
+    } catch (err) {
+      console.error("Erro ao carregar dashboard:", err);
+    } finally {
+      setIsLoading(false);
+      setIsRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchDashboardData();
+
+    // Auto-refresh when user focuses back on window
+    const handleFocus = () => fetchDashboardData(true);
+    window.addEventListener("focus", handleFocus);
+
+    // Auto-polling every 4 seconds so metrics, winners, and events are always 100% up-to-date
+    const interval = setInterval(() => fetchDashboardData(true), 4000);
+
+    return () => {
+      window.removeEventListener("focus", handleFocus);
+      clearInterval(interval);
+    };
+  }, []);
+
+  const metrics = data?.metrics || {
+    totalEvents: 0,
+    activeEventsCount: 0,
+    scheduledEventsCount: 0,
+    finishedEventsCount: 0,
+    totalParticipants: 0,
+    totalDraws: 0,
+    totalWinners: 0,
+  };
+
+  const latestEvents = data?.latestEvents || [];
+  const latestDraws = data?.latestDraws || [];
 
   return (
     <div className="space-y-8">
@@ -69,6 +93,16 @@ export default async function AdminDashboardPage() {
         subtitle="Visão geral dos sorteios, eventos e participantes da UniFAP"
         actions={
           <div className="flex items-center gap-3">
+            <button
+              onClick={() => fetchDashboardData(true)}
+              disabled={isRefreshing}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-700 shadow-sm transition"
+              title="Atualizar agora"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 text-slate-500 ${isRefreshing ? "animate-spin text-unifap-navy" : ""}`} />
+              <span>{isRefreshing ? "Atualizando..." : "Atualizar"}</span>
+            </button>
+
             <Link href="/admin/events">
               <Button variant="primary" leftIcon={<Plus className="w-4 h-4" />}>
                 Novo Evento
@@ -89,7 +123,7 @@ export default async function AdminDashboardPage() {
                   Eventos Ativos
                 </p>
                 <h3 className="text-3xl font-extrabold text-white mt-1">
-                  {activeEventsCount}
+                  {isLoading ? "..." : metrics.activeEventsCount}
                 </h3>
               </div>
               <div className="w-12 h-12 rounded-2xl bg-white/10 flex items-center justify-center text-unifap-gold">
@@ -97,8 +131,8 @@ export default async function AdminDashboardPage() {
               </div>
             </div>
             <div className="mt-4 pt-3 border-t border-white/15 flex items-center justify-between text-xs text-blue-200">
-              <span>{scheduledEventsCount} agendado(s)</span>
-              <span>{finishedEventsCount} finalizado(s)</span>
+              <span>{metrics.scheduledEventsCount} agendado(s)</span>
+              <span>{metrics.finishedEventsCount} finalizado(s)</span>
             </div>
           </CardContent>
         </Card>
@@ -112,7 +146,7 @@ export default async function AdminDashboardPage() {
                   Total de Inscritos
                 </p>
                 <h3 className="text-3xl font-extrabold text-unifap-navy mt-1">
-                  {totalParticipants}
+                  {isLoading ? "..." : metrics.totalParticipants}
                 </h3>
               </div>
               <div className="w-12 h-12 rounded-2xl bg-blue-50 text-unifap-light flex items-center justify-center">
@@ -135,7 +169,7 @@ export default async function AdminDashboardPage() {
                   Sorteios Realizados
                 </p>
                 <h3 className="text-3xl font-extrabold text-unifap-navy mt-1">
-                  {totalDraws}
+                  {isLoading ? "..." : metrics.totalDraws}
                 </h3>
               </div>
               <div className="w-12 h-12 rounded-2xl bg-amber-50 text-unifap-gold flex items-center justify-center">
@@ -158,7 +192,7 @@ export default async function AdminDashboardPage() {
                   Ganhadores
                 </p>
                 <h3 className="text-3xl font-extrabold text-unifap-navy mt-1">
-                  {totalWinners}
+                  {isLoading ? "..." : metrics.totalWinners}
                 </h3>
               </div>
               <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
@@ -186,58 +220,64 @@ export default async function AdminDashboardPage() {
               href="/admin/events"
               className="text-xs font-bold text-unifap-blue hover:text-unifap-navy flex items-center gap-1 transition"
             >
-              <span>Ver todos ({totalEvents})</span>
+              <span>Ver todos ({metrics.totalEvents})</span>
               <ArrowUpRight className="w-3.5 h-3.5" />
             </Link>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {latestEvents.map((ev) => (
-              <Card key={ev.id} className="hover:border-unifap-blue/40 flex flex-col justify-between">
-                <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between gap-2 mb-2">
-                    <StatusBadge status={ev.status} />
-                    <span className="text-[11px] text-slate-400 font-medium">{formatDate(ev.date)}</span>
-                  </div>
-                  <CardTitle className="text-base line-clamp-1">{ev.name}</CardTitle>
-                </CardHeader>
+            {latestEvents.length === 0 ? (
+              <div className="col-span-2 p-8 text-center bg-white rounded-2xl border border-slate-200 text-xs text-slate-400">
+                Nenhum evento cadastrado ainda.
+              </div>
+            ) : (
+              latestEvents.map((ev) => (
+                <Card key={ev.id} className="hover:border-unifap-blue/40 flex flex-col justify-between">
+                  <CardHeader className="pb-3">
+                    <div className="flex items-start justify-between gap-2 mb-2">
+                      <StatusBadge status={ev.status} />
+                      <span className="text-[11px] text-slate-400 font-medium">{formatDate(ev.date)}</span>
+                    </div>
+                    <CardTitle className="text-base line-clamp-1">{ev.name}</CardTitle>
+                  </CardHeader>
 
-                <CardContent className="pt-0">
-                  <div className="grid grid-cols-3 gap-2 py-3 border-y border-slate-100 text-center my-2">
-                    <div>
-                      <div className="text-xs text-slate-400 font-medium">Inscritos</div>
-                      <div className="text-sm font-bold text-slate-800">{ev._count.participants}</div>
+                  <CardContent className="pt-0">
+                    <div className="grid grid-cols-3 gap-2 py-3 border-y border-slate-100 text-center my-2">
+                      <div>
+                        <div className="text-xs text-slate-400 font-medium">Inscritos</div>
+                        <div className="text-sm font-bold text-slate-800">{ev._count?.participants || 0}</div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-slate-400 font-medium">Prêmios</div>
+                        <div className="text-sm font-bold text-slate-800">{ev._count?.prizes || 0}</div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-slate-400 font-medium">Sorteados</div>
+                        <div className="text-sm font-bold text-emerald-600">{ev._count?.winners || 0}</div>
+                      </div>
                     </div>
-                    <div>
-                      <div className="text-xs text-slate-400 font-medium">Prêmios</div>
-                      <div className="text-sm font-bold text-slate-800">{ev._count.prizes}</div>
-                    </div>
-                    <div>
-                      <div className="text-xs text-slate-400 font-medium">Sorteados</div>
-                      <div className="text-sm font-bold text-emerald-600">{ev._count.winners}</div>
-                    </div>
-                  </div>
 
-                  <div className="flex items-center gap-2 mt-4">
-                    <Link href={`/admin/events/${ev.id}`} className="flex-1">
-                      <Button variant="outline" size="sm" className="w-full text-xs">
-                        Gerenciar
-                      </Button>
-                    </Link>
-                    <Link href={`/admin/events/${ev.id}/draw`}>
-                      <Button variant="gold" size="sm" className="px-3" title="Operar Sorteio">
-                        <PlayCircle className="w-4 h-4" />
-                      </Button>
-                    </Link>
-                    <Link href={`/presentation/${ev.id}`} target="_blank">
-                      <Button variant="secondary" size="sm" className="px-3" title="Abrir Telão 4K">
-                        <Tv className="w-4 h-4" />
-                      </Button>
-                    </Link>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                    <div className="flex items-center gap-2 mt-4">
+                      <Link href={`/admin/events/${ev.id}`} className="flex-1">
+                        <Button variant="outline" size="sm" className="w-full text-xs">
+                          Gerenciar
+                        </Button>
+                      </Link>
+                      <Link href={`/admin/events/${ev.id}/draw`}>
+                        <Button variant="gold" size="sm" className="px-3" title="Operar Sorteio">
+                          <PlayCircle className="w-4 h-4" />
+                        </Button>
+                      </Link>
+                      <Link href={`/presentation/${ev.id}`} target="_blank">
+                        <Button variant="secondary" size="sm" className="px-3" title="Abrir Telão 4K">
+                          <Tv className="w-4 h-4" />
+                        </Button>
+                      </Link>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+            )}
           </div>
         </div>
 
@@ -267,17 +307,17 @@ export default async function AdminDashboardPage() {
                 latestDraws.map((d) => (
                   <div key={d.id} className="p-4 flex items-start gap-3 hover:bg-slate-50/80 transition">
                     <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-unifap-dark font-extrabold text-sm shrink-0">
-                      #{padNumber(d.winnerParticipant.ticketNumber, 3)}
+                      #{padNumber(d.drawnNumber || d.winnerParticipant?.ticketNumber || 0, 3)}
                     </div>
                     <div className="flex-1 min-w-0">
                       <h4 className="text-xs font-bold text-slate-900 truncate">
-                        {d.winnerParticipant.name}
+                        {d.winnerParticipant?.name || d.drawnName}
                       </h4>
                       <p className="text-[11px] text-unifap-navy font-semibold truncate mt-0.5">
-                        {d.prize.name}
+                        {d.prize?.name}
                       </p>
                       <div className="flex items-center gap-2 text-[10px] text-slate-400 mt-1">
-                        <span>{d.event.name}</span>
+                        <span>{d.event?.name}</span>
                         <span>•</span>
                         <span>{formatDateTime(d.timestamp)}</span>
                       </div>
