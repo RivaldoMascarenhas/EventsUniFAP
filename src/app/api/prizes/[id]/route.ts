@@ -14,6 +14,29 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     }
 
     const { id } = await params;
+
+    const existingPrize = await prisma.prize.findUnique({
+      where: { id },
+      include: {
+        winners: true,
+        draws: true,
+      },
+    });
+
+    if (!existingPrize) {
+      return NextResponse.json({ error: "Prêmio não encontrado" }, { status: 404 });
+    }
+
+    const isFinalized = existingPrize.status === "DRAWN" || existingPrize.winners.length > 0 || existingPrize.draws.length > 0;
+
+    // Only Admin can edit finalized/drawn prizes
+    if (isFinalized && session.user.role !== "ADMIN") {
+      return NextResponse.json(
+        { error: "Apenas administradores podem editar prêmios já finalizados ou sorteados." },
+        { status: 403 }
+      );
+    }
+
     const body = await req.json();
     const validated = prizeSchema.partial().parse(body);
 
@@ -54,6 +77,29 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     }
 
     const { id } = await params;
+
+    const existingPrize = await prisma.prize.findUnique({
+      where: { id },
+      include: {
+        winners: true,
+        draws: true,
+      },
+    });
+
+    if (!existingPrize) {
+      return NextResponse.json({ error: "Prêmio não encontrado" }, { status: 404 });
+    }
+
+    const isFinalized = existingPrize.status === "DRAWN" || existingPrize.winners.length > 0 || existingPrize.draws.length > 0;
+
+    // Only Admin can delete finalized/drawn prizes
+    if (isFinalized && session.user.role !== "ADMIN") {
+      return NextResponse.json(
+        { error: "Apenas administradores podem excluir prêmios já finalizados ou sorteados." },
+        { status: 403 }
+      );
+    }
+
     await prisma.$transaction([
       prisma.winner.deleteMany({ where: { prizeId: id } }),
       prisma.draw.deleteMany({ where: { prizeId: id } }),
