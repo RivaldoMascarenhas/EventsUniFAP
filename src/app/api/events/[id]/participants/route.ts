@@ -82,3 +82,54 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: error.message || "Erro ao cadastrar participante" }, { status: 400 });
   }
 }
+
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session || session.user.role !== "ADMIN") {
+      return NextResponse.json({ error: "Apenas administradores podem limpar a lista de participantes" }, { status: 403 });
+    }
+
+    const { id: eventId } = await params;
+
+    // Delete all non-winner participants in the event
+    const deleteResult = await prisma.participant.deleteMany({
+      where: {
+        eventId,
+        isWinner: false,
+      },
+    });
+
+    await AuditService.log({
+      userId: session.user.id,
+      action: AuditAction.PARTICIPANT_DELETED,
+      entity: "Event",
+      entityId: eventId,
+      metadata: { action: "CLEAR_ALL_PARTICIPANTS", countDeleted: deleteResult.count },
+    });
+
+    const remainingCount = await prisma.participant.count({ where: { eventId } });
+
+    realtimeService.publish(eventId, {
+      type: "participant:registered",
+      eventId,
+      participantCount: remainingCount,
+    }).catch(() => {});
+
+    realtimeService.broadcastGlobalUpdate({
+      type: "participant:registered",
+      eventId,
+      metadata: { participantCount: remainingCount },
+    }).catch(() => {});
+
+    return NextResponse.json({
+      success: true,
+      countDeleted: deleteResult.count,
+      remainingCount,
+      message: `${deleteResult.count} participantes foram removidos com sucesso.`,
+    });
+  } catch (error: any) {
+    console.error("[DELETE /api/events/[id]/participants]", error);
+    return NextResponse.json({ error: error.message || "Erro ao limpar participantes" }, { status: 400 });
+  }
+}

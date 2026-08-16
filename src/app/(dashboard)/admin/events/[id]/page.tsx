@@ -36,6 +36,8 @@ import {
   Share2,
   FileDown,
   Lock,
+  Ban,
+  CheckCircle,
 } from "lucide-react";
 import { formatDate, formatDateTime, formatCurrency, padNumber, maskCPF } from "@/lib/utils";
 import { ImageUpload } from "@/components/ui/ImageUpload";
@@ -74,6 +76,10 @@ export default function SingleEventPage({ params }: { params: Promise<{ id: stri
     phone: "",
     category: "Geral",
   });
+  const [participantToDelete, setParticipantToDelete] = useState<any | null>(null);
+  const [isDeletingParticipant, setIsDeletingParticipant] = useState(false);
+  const [isClearParticipantsModalOpen, setIsClearParticipantsModalOpen] = useState(false);
+  const [isClearingParticipants, setIsClearingParticipants] = useState(false);
 
   // Import Wizard State
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
@@ -312,9 +318,74 @@ export default function SingleEventPage({ params }: { params: Promise<{ id: stri
       setIsAddParticipantModalOpen(false);
       setNewParticipant({ name: "", registration: "", cpf: "", email: "", phone: "", category: "Geral" });
       fetchParticipants();
-      fetchEventData();
+      fetchEventData(true);
     } catch (err: any) {
       error("Erro", err.message);
+    }
+  };
+
+  const handleConfirmDeleteParticipant = async () => {
+    if (!participantToDelete) return;
+    try {
+      setIsDeletingParticipant(true);
+      const res = await fetch(`/api/events/${id}/participants/${participantToDelete.id}`, {
+        method: "DELETE",
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Erro ao excluir participante");
+
+      success("Participante Excluído!", data.message || `Participante ${participantToDelete.name} foi removido.`);
+      setParticipantToDelete(null);
+      fetchParticipants();
+      fetchEventData(true);
+    } catch (err: any) {
+      error("Erro ao excluir participante", err.message);
+    } finally {
+      setIsDeletingParticipant(false);
+    }
+  };
+
+  const handleToggleEligibility = async (participant: any) => {
+    try {
+      const nextEligible = !participant.isEligible;
+      const res = await fetch(`/api/events/${id}/participants/${participant.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isEligible: nextEligible }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Erro ao atualizar elegibilidade");
+
+      info(
+        "Status Atualizado",
+        nextEligible
+          ? `${participant.name} agora está ELEGÍVEL para sorteios.`
+          : `${participant.name} foi marcado como INELEGÍVEL.`
+      );
+      fetchParticipants();
+      fetchEventData(true);
+    } catch (err: any) {
+      error("Erro", err.message);
+    }
+  };
+
+  const handleConfirmClearAllParticipants = async () => {
+    try {
+      setIsClearingParticipants(true);
+      const res = await fetch(`/api/events/${id}/participants`, {
+        method: "DELETE",
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Erro ao limpar participantes");
+
+      success("Lista Limpa com Sucesso!", data.message || "Todos os participantes não-ganhadores foram removidos.");
+      setIsClearParticipantsModalOpen(false);
+      fetchParticipants();
+      fetchEventData(true);
+    } catch (err: any) {
+      error("Erro ao limpar lista", err.message);
+    } finally {
+      setIsClearingParticipants(false);
     }
   };
 
@@ -725,6 +796,17 @@ export default function SingleEventPage({ params }: { params: Promise<{ id: stri
 
               {!isPresenter && (
                 <>
+                  {isAdmin && participantsTotal > 0 && (
+                    <Button
+                      variant="outline"
+                      className="border-rose-200 text-rose-600 hover:bg-rose-50 hover:border-rose-300"
+                      leftIcon={<Trash2 className="w-4 h-4 text-rose-500" />}
+                      onClick={() => setIsClearParticipantsModalOpen(true)}
+                      title="Remover todos os inscritos não-ganhadores deste evento"
+                    >
+                      Limpar Lista
+                    </Button>
+                  )}
                   <Button
                     variant="outline"
                     leftIcon={<Upload className="w-4 h-4" />}
@@ -754,12 +836,13 @@ export default function SingleEventPage({ params }: { params: Promise<{ id: stri
                     <th className="py-3 px-4">Matrícula / CPF</th>
                     <th className="py-3 px-4">Categoria</th>
                     <th className="py-3 px-4 text-center">Status</th>
+                    {!isPresenter && <th className="py-3 px-4 text-right">Ações</th>}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-xs text-slate-700">
                   {participants.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="py-8 text-center text-slate-400">
+                      <td colSpan={isPresenter ? 5 : 6} className="py-8 text-center text-slate-400">
                         Nenhum participante encontrado. Use a importação ou cadastro manual.
                       </td>
                     </tr>
@@ -786,6 +869,33 @@ export default function SingleEventPage({ params }: { params: Promise<{ id: stri
                             <Badge variant="danger">Inelegível</Badge>
                           )}
                         </td>
+                        {!isPresenter && (
+                          <td className="py-3 px-4 text-right">
+                            <div className="flex items-center justify-end gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => handleToggleEligibility(p)}
+                                className={`p-1.5 rounded-lg border text-xs font-bold transition ${
+                                  p.isEligible
+                                    ? "bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100"
+                                    : "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100"
+                                }`}
+                                title={p.isEligible ? "Tornar Inelegível para sorteios" : "Tornar Elegível para sorteios"}
+                              >
+                                {p.isEligible ? <Ban className="w-3.5 h-3.5" /> : <CheckCircle className="w-3.5 h-3.5" />}
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => setParticipantToDelete(p)}
+                                className="p-1.5 rounded-lg border border-rose-200 bg-rose-50 text-rose-600 hover:bg-rose-100 transition"
+                                title="Excluir Participante"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </td>
+                        )}
                       </tr>
                     ))
                   )}
@@ -1760,6 +1870,85 @@ Pedro Henrique Valença,202310103,08434567890,Fisioterapia,pedro@aluno.unifapce.
               onClick={handleDeleteEvent}
             >
               Sim, Excluir Evento
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Modal: Confirm Delete Single Participant */}
+      <Modal
+        isOpen={Boolean(participantToDelete)}
+        onClose={() => setParticipantToDelete(null)}
+        title="Excluir Participante"
+        description="Tem certeza que deseja remover este participante do evento?"
+      >
+        {participantToDelete && (
+          <div className="space-y-4">
+            <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
+              <div className="text-sm font-bold text-slate-900">{participantToDelete.name}</div>
+              <div className="text-xs text-slate-600 font-mono">
+                Bilhete: #{padNumber(participantToDelete.ticketNumber, 3)}
+              </div>
+              {participantToDelete.registration && (
+                <div className="text-xs text-slate-500">Matrícula: {participantToDelete.registration}</div>
+              )}
+            </div>
+
+            {participantToDelete.isWinner && (
+              <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-900 font-medium">
+                ⚠️ <strong>Atenção:</strong> Este participante foi contemplado como ganhador em sorteios deste evento. A exclusão removerá sua vaga.
+              </div>
+            )}
+
+            <div className="flex justify-end gap-3 pt-2">
+              <Button
+                variant="outline"
+                onClick={() => setParticipantToDelete(null)}
+                disabled={isDeletingParticipant}
+              >
+                Cancelar
+              </Button>
+              <Button
+                variant="danger"
+                onClick={handleConfirmDeleteParticipant}
+                isLoading={isDeletingParticipant}
+                leftIcon={<Trash2 className="w-4 h-4" />}
+              >
+                Sim, Excluir Participante
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* Modal: Confirm Clear All Participants */}
+      <Modal
+        isOpen={isClearParticipantsModalOpen}
+        onClose={() => setIsClearParticipantsModalOpen(false)}
+        title="Limpar Todos os Participantes"
+        description="Esta ação removerá todos os participantes não-ganhadores inscritos neste evento."
+      >
+        <div className="space-y-4">
+          <div className="p-4 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-900 leading-relaxed">
+            <strong>⚠️ Atenção:</strong> Você está prestes a remover todos os participantes inscritos neste evento.
+            Esta operação é irreversível e liberará os bilhetes para novas inscrições ou novas importações.
+          </div>
+
+          <div className="flex justify-end gap-3 pt-2">
+            <Button
+              variant="outline"
+              onClick={() => setIsClearParticipantsModalOpen(false)}
+              disabled={isClearingParticipants}
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant="danger"
+              onClick={handleConfirmClearAllParticipants}
+              isLoading={isClearingParticipants}
+              leftIcon={<Trash2 className="w-4 h-4" />}
+            >
+              Sim, Limpar Lista de Inscritos
             </Button>
           </div>
         </div>
