@@ -643,6 +643,26 @@ export default function SingleEventPage({ params }: { params: Promise<{ id: stri
               />
             </div>
             <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+              <a
+                href={`/api/events/${event.id}/export?type=participants&format=xlsx`}
+                download
+                title="Exportar lista de participantes em formato Excel"
+              >
+                <Button variant="outline" leftIcon={<FileSpreadsheet className="w-4 h-4 text-emerald-600" />}>
+                  Baixar Excel
+                </Button>
+              </a>
+
+              <a
+                href={`/api/events/${event.id}/export?type=participants&format=html`}
+                target="_blank"
+                title="Imprimir lista oficial de participantes ou salvar em PDF"
+              >
+                <Button variant="outline" leftIcon={<Download className="w-4 h-4 text-unifap-navy" />}>
+                  Imprimir / PDF
+                </Button>
+              </a>
+
               <Button
                 variant="outline"
                 size="md"
