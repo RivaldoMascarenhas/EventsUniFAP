@@ -90,6 +90,7 @@ function PresentationContent({ eventId }: { eventId: string }) {
   }, [eventId]);
 
   const lastAnimatedDrawIdRef = useRef<string | null>(null);
+  const lastProcessedTimestampRef = useRef<number>(0);
   const isAnimatingRef = useRef(false);
   const rafIdRef = useRef<number | null>(null);
   const audioFeedbackTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -160,13 +161,22 @@ function PresentationContent({ eventId }: { eventId: string }) {
   const handleIncomingState = (payload: any, isInitialLoad = false) => {
     if (!payload || !payload.type) return;
 
+    // Discard delayed / out-of-order network packets
+    const msgTimestamp = typeof payload.timestamp === "number" ? payload.timestamp : 0;
+    if (!isInitialLoad && msgTimestamp > 0 && msgTimestamp < lastProcessedTimestampRef.current) {
+      return;
+    }
+    if (msgTimestamp > 0) {
+      lastProcessedTimestampRef.current = Math.max(lastProcessedTimestampRef.current, msgTimestamp);
+    }
+
     const drawKey = payload.drawId || payload.winner?.drawId || (payload.winner?.drawnNumber ? `num-${payload.winner.drawnNumber}-${payload.winner.prize?.id || ''}` : null);
 
     if (payload.type === "state:sync") {
       if (!isAnimatingRef.current) {
         if (payload.state) setSafeState(payload.state);
-        if (payload.prize) setCurrentPrize(payload.prize);
-        if (payload.winner) setCurrentWinner(payload.winner);
+        if (payload.prize !== undefined) setCurrentPrize(payload.prize);
+        if (payload.winner !== undefined) setCurrentWinner(payload.winner);
       }
     } else if (payload.type === "qr:show") {
       if (rafIdRef.current) cancelAnimationFrame(rafIdRef.current);
@@ -599,7 +609,7 @@ function PresentationContent({ eventId }: { eventId: string }) {
           )}
 
           {/* STATE 4: SHOWING_PRIZE */}
-          {state === "SHOWING_PRIZE" && currentPrize && (
+          {state === "SHOWING_PRIZE" && (
             <motion.div
               key="prize"
               initial={{ opacity: 0, y: 20 }}
@@ -613,46 +623,58 @@ function PresentationContent({ eventId }: { eventId: string }) {
                 <span>Próximo Prêmio</span>
               </div>
 
-              {currentPrize.imageUrl ? (
-                <div className="p-4 rounded-3xl bg-white/10 backdrop-blur-md border border-white/20 max-w-md mx-auto shadow-2xl">
-                  <img
-                    src={currentPrize.imageUrl}
-                    alt={currentPrize.name}
-                    className="max-h-64 w-auto object-contain mx-auto rounded-2xl"
-                  />
-                </div>
-              ) : (
-                <div className="w-32 h-32 mx-auto rounded-3xl bg-unifap-gold/20 border border-unifap-gold/30 flex items-center justify-center shadow-2xl backdrop-blur-md">
-                  <Trophy className="w-16 h-16 text-unifap-gold" />
-                </div>
-              )}
-
-              <div>
-                <div className="text-xs uppercase tracking-widest text-slate-400 font-bold mb-1">
-                  Rodada #{currentPrize.order}
-                </div>
-                <h1 className="text-4xl sm:text-6xl font-black text-white tracking-tight drop-shadow-lg">
-                  {currentPrize.name}
-                </h1>
-                {currentPrize.description && (
-                  <p className="text-slate-300 font-light mt-2 max-w-lg mx-auto">
-                    {currentPrize.description}
-                  </p>
-                )}
-              </div>
-
-              {currentPrize.sponsor && (
-                <div className="inline-flex items-center gap-3 px-6 py-3 rounded-2xl bg-white/10 border border-white/15 backdrop-blur-md">
-                  {currentPrize.sponsor.logoUrl && (
-                    <img
-                      src={currentPrize.sponsor.logoUrl}
-                      alt={currentPrize.sponsor.name}
-                      className="h-7 w-auto object-contain"
-                    />
+              {currentPrize ? (
+                <>
+                  {currentPrize.imageUrl ? (
+                    <div className="p-4 rounded-3xl bg-white/10 backdrop-blur-md border border-white/20 max-w-md mx-auto shadow-2xl">
+                      <img
+                        src={currentPrize.imageUrl}
+                        alt={currentPrize.name}
+                        className="max-h-64 w-auto object-contain mx-auto rounded-2xl"
+                      />
+                    </div>
+                  ) : (
+                    <div className="w-32 h-32 mx-auto rounded-3xl bg-unifap-gold/20 border border-unifap-gold/30 flex items-center justify-center shadow-2xl backdrop-blur-md">
+                      <Trophy className="w-16 h-16 text-unifap-gold" />
+                    </div>
                   )}
-                  <span className="text-sm font-semibold text-slate-200">
-                    Oferecido por: <strong className="text-unifap-gold">{currentPrize.sponsor.name}</strong>
-                  </span>
+
+                  <div>
+                    <div className="text-xs uppercase tracking-widest text-slate-400 font-bold mb-1">
+                      Rodada #{currentPrize.order || 1}
+                    </div>
+                    <h1 className="text-4xl sm:text-6xl font-black text-white tracking-tight drop-shadow-lg">
+                      {currentPrize.name}
+                    </h1>
+                    {currentPrize.description && (
+                      <p className="text-slate-300 font-light mt-2 max-w-lg mx-auto">
+                        {currentPrize.description}
+                      </p>
+                    )}
+                  </div>
+
+                  {currentPrize.sponsor && (
+                    <div className="inline-flex items-center gap-3 px-6 py-3 rounded-2xl bg-white/10 border border-white/15 backdrop-blur-md">
+                      {currentPrize.sponsor.logoUrl && (
+                        <img
+                          src={currentPrize.sponsor.logoUrl}
+                          alt={currentPrize.sponsor.name}
+                          className="h-7 w-auto object-contain"
+                        />
+                      )}
+                      <span className="text-sm font-semibold text-slate-200">
+                        Oferecido por: <strong className="text-unifap-gold">{currentPrize.sponsor.name}</strong>
+                      </span>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="text-center py-8">
+                  <div className="w-24 h-24 mx-auto rounded-3xl bg-unifap-gold/20 border border-unifap-gold/30 flex items-center justify-center shadow-2xl backdrop-blur-md mb-4">
+                    <Trophy className="w-12 h-12 text-unifap-gold animate-bounce" />
+                  </div>
+                  <h1 className="text-3xl sm:text-5xl font-black text-white">Aguardando Seleção do Prêmio</h1>
+                  <p className="text-slate-300 mt-2">O operador está selecionando o prêmio desta rodada.</p>
                 </div>
               )}
             </motion.div>
@@ -690,7 +712,7 @@ function PresentationContent({ eventId }: { eventId: string }) {
           )}
 
           {/* STATE 6: RESULT */}
-          {state === "RESULT" && currentWinner && (
+          {state === "RESULT" && (
             <motion.div
               key="result"
               initial={{ opacity: 0, scale: 0.8 }}
@@ -699,37 +721,48 @@ function PresentationContent({ eventId }: { eventId: string }) {
               transition={{ type: "spring", stiffness: 280, damping: 20 }}
               className="space-y-6 max-w-4xl w-full"
             >
-              <div className="inline-flex items-center gap-2 px-6 py-2 rounded-full bg-unifap-gold text-unifap-dark text-sm sm:text-base font-black uppercase tracking-widest shadow-2xl">
-                <Sparkles className="w-5 h-5 fill-current" />
-                PARABÉNS AO CONTEMPLADO!
-              </div>
+              {currentWinner ? (
+                <>
+                  <div className="inline-flex items-center gap-2 px-6 py-2 rounded-full bg-unifap-gold text-unifap-dark text-sm sm:text-base font-black uppercase tracking-widest shadow-2xl">
+                    <Sparkles className="w-5 h-5 fill-current" />
+                    PARABÉNS AO CONTEMPLADO!
+                  </div>
 
-              {/* Giant Number Reveal */}
-              <div className="text-7xl sm:text-[140px] font-black font-mono text-white tracking-tight drop-shadow-[0_10px_50px_rgba(255,255,255,0.4)] leading-none">
-                #{padNumber(currentWinner.drawnNumber, 3)}
-              </div>
+                  {/* Giant Number Reveal */}
+                  <div className="text-7xl sm:text-[140px] font-black font-mono text-white tracking-tight drop-shadow-[0_10px_50px_rgba(255,255,255,0.4)] leading-none">
+                    #{padNumber(currentWinner.drawnNumber ?? currentWinner.winner?.ticketNumber ?? 0, 3)}
+                  </div>
 
-              {/* Winner Name Banner */}
-              <div className="p-6 sm:p-8 rounded-3xl bg-white/15 border-2 border-unifap-gold/80 backdrop-blur-xl shadow-2xl">
-                <h2 className="text-3xl sm:text-5xl font-black text-unifap-gold tracking-tight">
-                  {currentWinner.winner?.name || currentWinner.drawnName}
-                </h2>
-                {currentWinner.winner?.category && (
-                  <p className="text-sm sm:text-base text-slate-200 font-semibold mt-2">
-                    {currentWinner.winner.category} {currentWinner.winner.registration ? `• Matrícula: ${currentWinner.winner.registration}` : ""}
-                  </p>
-                )}
-              </div>
+                  {/* Winner Name Banner */}
+                  <div className="p-6 sm:p-8 rounded-3xl bg-white/15 border-2 border-unifap-gold/80 backdrop-blur-xl shadow-2xl">
+                    <h2 className="text-3xl sm:text-5xl font-black text-unifap-gold tracking-tight">
+                      {currentWinner.winner?.name || currentWinner.drawnName || "Participante Contemplado"}
+                    </h2>
+                    {currentWinner.winner?.category && (
+                      <p className="text-sm sm:text-base text-slate-200 font-semibold mt-2">
+                        {currentWinner.winner.category} {currentWinner.winner.registration ? `• Matrícula: ${currentWinner.winner.registration}` : ""}
+                      </p>
+                    )}
+                  </div>
 
-              {/* Prize & Sponsor Showcase */}
-              <div className="flex flex-wrap items-center justify-center gap-4 text-sm text-slate-200">
-                <div className="px-5 py-2.5 rounded-xl bg-white/10 border border-white/20 backdrop-blur-md">
-                  Prêmio: <strong className="text-white">{currentWinner.prize?.name || "Premiação Oficial"}</strong>
+                  {/* Prize & Sponsor Showcase */}
+                  <div className="flex flex-wrap items-center justify-center gap-4 text-sm text-slate-200">
+                    <div className="px-5 py-2.5 rounded-xl bg-white/10 border border-white/20 backdrop-blur-md">
+                      Prêmio: <strong className="text-white">{currentWinner.prize?.name || currentPrize?.name || "Premiação Oficial"}</strong>
+                    </div>
+                    {(currentWinner.prize?.sponsor?.name || currentPrize?.sponsor?.name) && (
+                      <div className="px-5 py-2.5 rounded-xl bg-white/10 border border-white/20 backdrop-blur-md">
+                        Patrocínio: <strong className="text-unifap-gold">{currentWinner.prize?.sponsor?.name || currentPrize?.sponsor?.name}</strong>
+                      </div>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <div className="space-y-4">
+                  <h2 className="text-3xl font-bold text-white">Aguardando Próximo Sorteio</h2>
+                  <p className="text-slate-300">O operador iniciará a rodada em instantes.</p>
                 </div>
-                <div className="px-5 py-2.5 rounded-xl bg-white/10 border border-white/20 backdrop-blur-md">
-                  Patrocínio: <strong className="text-unifap-gold">{currentWinner.prize?.sponsor?.name || "UniFAP"}</strong>
-                </div>
-              </div>
+              )}
             </motion.div>
           )}
         </AnimatePresence>

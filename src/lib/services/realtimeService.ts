@@ -67,10 +67,13 @@ class RealtimeService {
     };
   }
 
-  public async publish(eventId: string, event: Omit<RealtimePayload, "timestamp">) {
+  public async publish(eventId: string, event: Partial<RealtimePayload>) {
     const channel = this.getChannel(eventId);
     if (event.state && event.type !== "audio:config") {
       channel.state = event.state;
+    }
+    if (event.type === "qr:show" || event.type === "logo:show" || event.type === "idle:show") {
+      channel.currentWinner = null;
     }
     if (event.prize !== undefined) channel.currentPrize = event.prize;
     if (event.prizeId !== undefined) channel.currentPrizeId = event.prizeId;
@@ -78,12 +81,16 @@ class RealtimeService {
     if (event.soundEnabled !== undefined) channel.soundEnabled = event.soundEnabled;
     if (event.volume !== undefined) channel.volume = event.volume;
 
+    const eventTimestamp = event.timestamp || Date.now();
+
     const payload: RealtimePayload = {
+      type: event.type || "state:sync",
+      eventId,
       ...event,
       state: channel.state,
       soundEnabled: channel.soundEnabled,
       volume: channel.volume,
-      timestamp: Date.now(),
+      timestamp: eventTimestamp,
     };
 
     // Snapshot to persist for background polling sync
@@ -96,7 +103,7 @@ class RealtimeService {
       winner: channel.currentWinner,
       soundEnabled: channel.soundEnabled,
       volume: channel.volume,
-      timestamp: Date.now(),
+      timestamp: eventTimestamp,
     };
 
     // 1. Dispatch to local Node SSE subscribers

@@ -154,11 +154,16 @@ export default function OperatorDrawPage({ params }: { params: Promise<{ id: str
 
   // Broadcast helper using Supabase Realtime WebSocket (Instant) + API (Persistent)
   const broadcastRealtime = async (payload: any) => {
+    const enrichedPayload = {
+      ...payload,
+      timestamp: Date.now(),
+    };
+
     if (supabaseChannelRef.current) {
       supabaseChannelRef.current.send({
         type: "broadcast",
         event: "state_change",
-        payload,
+        payload: enrichedPayload,
       }).catch(() => {});
     }
 
@@ -166,7 +171,7 @@ export default function OperatorDrawPage({ params }: { params: Promise<{ id: str
       await fetch(`/api/events/${eventId}/realtime`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(enrichedPayload),
       });
     } catch {
       // Graceful fallback
