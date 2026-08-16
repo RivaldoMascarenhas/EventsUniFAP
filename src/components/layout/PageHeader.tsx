@@ -17,28 +17,28 @@ export function PageHeader({
   className,
 }: PageHeaderProps) {
   return (
-    <div className={cn("mb-8 flex flex-col md:flex-row md:items-center md:justify-between gap-4", className)}>
-      <div>
+    <div className={cn("mb-6 flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4", className)}>
+      <div className="min-w-0 flex-1">
         {breadcrumbs && (
-          <nav className="flex items-center gap-1.5 text-xs text-slate-500 font-medium mb-2">
+          <nav className="flex flex-wrap items-center gap-1.5 text-xs text-slate-500 font-medium mb-1.5">
             {breadcrumbs.map((b, i) => (
               <React.Fragment key={i}>
-                {i > 0 && <span>/</span>}
+                {i > 0 && <span className="text-slate-300 font-normal">/</span>}
                 {b.href ? (
-                  <a href={b.href} className="hover:text-unifap-navy transition">
+                  <a href={b.href} className="hover:text-unifap-navy transition max-w-[200px] sm:max-w-xs truncate">
                     {b.label}
                   </a>
                 ) : (
-                  <span className="text-slate-800 font-semibold">{b.label}</span>
+                  <span className="text-slate-800 font-semibold max-w-[200px] sm:max-w-xs truncate">{b.label}</span>
                 )}
               </React.Fragment>
             ))}
           </nav>
         )}
         <h1 className="text-2xl font-extrabold text-unifap-navy tracking-tight">{title}</h1>
-        {subtitle && <p className="text-sm text-slate-500 mt-1">{subtitle}</p>}
+        {subtitle && <p className="text-sm text-slate-500 mt-0.5">{subtitle}</p>}
       </div>
-      {actions && <div className="flex items-center gap-3 shrink-0">{actions}</div>}
+      {actions && <div className="flex flex-wrap items-center gap-2.5">{actions}</div>}
     </div>
   );
 }

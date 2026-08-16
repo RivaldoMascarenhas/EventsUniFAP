@@ -332,7 +332,7 @@ export default function OperatorDrawPage({ params }: { params: Promise<{ id: str
   if (isLoading) return <LoadingState message="Carregando painel de sorteio..." />;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <PageHeader
         breadcrumbs={[
           { label: "Eventos", href: "/admin/events" },
@@ -343,61 +343,6 @@ export default function OperatorDrawPage({ params }: { params: Promise<{ id: str
         subtitle={`Operação em tempo real para ${event.name}`}
         actions={
           <div className="flex flex-wrap items-center gap-2.5">
-            {/* Quick Remote Audio Toggle */}
-            <button
-              onClick={toggleTelaoAudio}
-              className={`p-2.5 rounded-xl border transition flex items-center gap-2 text-xs font-bold ${
-                telaoSoundEnabled
-                  ? "bg-amber-500/10 border-amber-500/30 text-amber-600 hover:bg-amber-500/20"
-                  : "bg-rose-50 border-rose-200 text-rose-600 hover:bg-rose-100"
-              }`}
-              title={
-                telaoSoundEnabled
-                  ? "Áudio do Telão Ativado — Clique para Silenciar todas as TVs"
-                  : "Telões Silenciados — Clique para Ativar Áudio nas TVs"
-              }
-            >
-              {telaoSoundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
-              <span>{telaoSoundEnabled ? "Áudio dos Telões (Ligado)" : "Telões Silenciados (Mudo)"}</span>
-            </button>
-
-            {/* Audio Settings Modal Trigger */}
-            <button
-              onClick={() => setIsAudioModalOpen(true)}
-              className="p-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold transition flex items-center gap-1.5 shadow-sm"
-              title="Ajustes Avançados de Áudio (Volume e Múltiplas TVs)"
-            >
-              <Sliders className="w-4 h-4 text-slate-500" />
-              <span className="hidden sm:inline">Ajustes de Áudio</span>
-            </button>
-
-            <Button
-              variant="outline"
-              size="md"
-              onClick={handleShowEventLogo}
-              leftIcon={<ImageIcon className="w-4 h-4 text-unifap-light" />}
-            >
-              Projetar Logo do Evento
-            </Button>
-
-            <Button
-              variant="outline"
-              size="md"
-              onClick={handleShowQrCode}
-              leftIcon={<Sparkles className="w-4 h-4 text-unifap-gold" />}
-            >
-              Projetar QR Code
-            </Button>
-
-            <Button
-              variant="outline"
-              size="md"
-              onClick={handleShowIdle}
-              leftIcon={<RotateCcw className="w-4 h-4" />}
-            >
-              Tela Inicial
-            </Button>
-
             <Button
               variant="gold"
               size="md"
@@ -415,6 +360,75 @@ export default function OperatorDrawPage({ params }: { params: Promise<{ id: str
           </div>
         }
       />
+
+      {/* Dedicated Operator Control Bar: Audio & Projection */}
+      <div className="p-3.5 rounded-2xl bg-white border border-slate-200/80 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
+        {/* Left: Remote Audio Controls */}
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="text-[11px] font-bold uppercase text-slate-400 mr-1 flex items-center gap-1">
+            <Tv className="w-3.5 h-3.5 text-unifap-navy" />
+            <span>Áudio dos Telões:</span>
+          </div>
+
+          <button
+            onClick={toggleTelaoAudio}
+            className={`px-3 py-1.5 rounded-xl border transition flex items-center gap-1.5 text-xs font-bold ${
+              telaoSoundEnabled
+                ? "bg-amber-500/10 border-amber-500/30 text-amber-600 hover:bg-amber-500/20"
+                : "bg-rose-50 border-rose-200 text-rose-600 hover:bg-rose-100"
+            }`}
+            title={
+              telaoSoundEnabled
+                ? "Áudio do Telão Ativado — Clique para Silenciar todas as TVs"
+                : "Telões Silenciados — Clique para Ativar Áudio nas TVs"
+            }
+          >
+            {telaoSoundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+            <span>{telaoSoundEnabled ? "Áudio Ligado" : "Mudo (Silenciado)"}</span>
+          </button>
+
+          <button
+            onClick={() => setIsAudioModalOpen(true)}
+            className="px-3 py-1.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-bold transition flex items-center gap-1.5"
+            title="Ajustar Volume e Múltiplas TVs"
+          >
+            <Sliders className="w-3.5 h-3.5 text-slate-500" />
+            <span>Ajustes de Áudio</span>
+          </button>
+        </div>
+
+        {/* Right: Presentation Projections */}
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="text-[11px] font-bold uppercase text-slate-400 mr-1">Projetar no Telão:</div>
+          
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleShowEventLogo}
+            leftIcon={<ImageIcon className="w-3.5 h-3.5 text-unifap-light" />}
+          >
+            Logo
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleShowQrCode}
+            leftIcon={<Sparkles className="w-3.5 h-3.5 text-unifap-gold" />}
+          >
+            QR Code
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleShowIdle}
+            leftIcon={<RotateCcw className="w-3.5 h-3.5" />}
+          >
+            Tela Inicial
+          </Button>
+        </div>
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Column: Controls */}
