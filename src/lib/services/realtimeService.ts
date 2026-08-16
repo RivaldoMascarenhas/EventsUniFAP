@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 export type PresentationStageState = "IDLE" | "SHOWING_QR_CODE" | "SHOWING_EVENT_LOGO" | "SHOWING_PRIZE" | "DRAWING" | "RESULT";
 
 export interface RealtimePayload {
-  type: "state:sync" | "qr:show" | "logo:show" | "idle:show" | "prize:show" | "draw:start" | "draw:result" | "draw:cancel" | "audio:config";
+  type: "state:sync" | "qr:show" | "logo:show" | "idle:show" | "prize:show" | "draw:start" | "draw:result" | "draw:cancel" | "audio:config" | "participant:registered";
   eventId: string;
   state?: PresentationStageState;
   prizeId?: string | null;
@@ -13,6 +13,7 @@ export interface RealtimePayload {
   winner?: any;
   soundEnabled?: boolean;
   volume?: number;
+  participantCount?: number;
   timestamp: number;
 }
 

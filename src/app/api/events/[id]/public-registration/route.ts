@@ -130,10 +130,19 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       isEligible: true,
     });
 
-    // Notify open admin dashboards in realtime via WebSocket
+    // 7. Realtime Broadcast to Presentation Screen & Admin Dashboards
+    const totalParticipants = await prisma.participant.count({ where: { eventId: event.id } });
+
+    realtimeService.publish(event.id, {
+      type: "participant:registered",
+      eventId: event.id,
+      participantCount: totalParticipants,
+    }).catch(() => {});
+
     realtimeService.broadcastGlobalUpdate({
       type: "participant:registered",
       eventId: event.id,
+      metadata: { participantCount: totalParticipants },
     }).catch(() => {});
 
     return NextResponse.json(

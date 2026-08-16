@@ -44,6 +44,23 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       operatorId: session.user.id,
     });
 
+    // Realtime Broadcast to Presentation Screen & Admin Dashboards
+    const { prisma } = await import("@/lib/prisma");
+    const { realtimeService } = await import("@/lib/services/realtimeService");
+    const totalParticipants = await prisma.participant.count({ where: { eventId } });
+
+    realtimeService.publish(eventId, {
+      type: "participant:registered",
+      eventId,
+      participantCount: totalParticipants,
+    }).catch(() => {});
+
+    realtimeService.broadcastGlobalUpdate({
+      type: "participant:registered",
+      eventId,
+      metadata: { participantCount: totalParticipants },
+    }).catch(() => {});
+
     return NextResponse.json(result, { status: 201 });
   } catch (error: any) {
     console.error("[POST /api/events/[id]/participants/import]", error);

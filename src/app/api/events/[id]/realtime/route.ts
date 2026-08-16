@@ -34,11 +34,15 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   // If poll mode requested (or standard JSON fetch for state snapshot)
   if (isPoll || req.headers.get("accept")?.includes("application/json")) {
     const state = await realtimeService.getPersistentState(eventId);
-    return NextResponse.json(state, {
-      headers: {
-        "Cache-Control": "no-store, max-age=0",
-      },
-    });
+    const participantCount = await prisma.participant.count({ where: { eventId } });
+    return NextResponse.json(
+      { ...state, participantCount },
+      {
+        headers: {
+          "Cache-Control": "no-store, max-age=0",
+        },
+      }
+    );
   }
 
   // Set up SSE Stream

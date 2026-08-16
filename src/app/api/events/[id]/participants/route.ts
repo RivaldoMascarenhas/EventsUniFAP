@@ -34,6 +34,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   }
 }
 
+import { realtimeService } from "@/lib/services/realtimeService";
+
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await getServerSession(authOptions);
@@ -58,6 +60,21 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       entityId: participant.id,
       metadata: { name: participant.name, ticketNumber: participant.ticketNumber },
     });
+
+    // Realtime Broadcast to Presentation Screen & Admin Dashboards
+    const totalParticipants = await prisma.participant.count({ where: { eventId } });
+
+    realtimeService.publish(eventId, {
+      type: "participant:registered",
+      eventId,
+      participantCount: totalParticipants,
+    }).catch(() => {});
+
+    realtimeService.broadcastGlobalUpdate({
+      type: "participant:registered",
+      eventId,
+      metadata: { participantCount: totalParticipants },
+    }).catch(() => {});
 
     return NextResponse.json(participant, { status: 201 });
   } catch (error: any) {
