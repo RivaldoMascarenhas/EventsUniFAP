@@ -22,6 +22,8 @@ import {
   ExternalLink,
   MapPin,
   Clock,
+  Trash2,
+  AlertTriangle,
 } from "lucide-react";
 import { formatDate, slugify } from "@/lib/utils";
 import { ImageUpload } from "@/components/ui/ImageUpload";
@@ -57,6 +59,8 @@ export default function EventsListPage() {
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [eventToDelete, setEventToDelete] = useState<EventItem | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
     slug: "",
@@ -137,6 +141,26 @@ export default function EventsListPage() {
       error("Erro ao criar evento", err.message);
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!eventToDelete) return;
+    try {
+      setIsDeleting(true);
+      const res = await fetch(`/api/events/${eventToDelete.id}`, {
+        method: "DELETE",
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Erro ao excluir evento");
+
+      success("Evento Excluído", `O evento "${eventToDelete.name}" foi removido com sucesso.`);
+      setEventToDelete(null);
+      fetchEvents();
+    } catch (err: any) {
+      error("Erro ao excluir", err.message);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -265,16 +289,26 @@ export default function EventsListPage() {
                   </Link>
 
                   <Link href={`/admin/events/${ev.id}/draw`}>
-                    <Button variant="gold" size="sm" className="px-3" title="Operar Sorteio">
+                    <Button variant="gold" size="sm" className="px-2.5" title="Operar Sorteio">
                       <PlayCircle className="w-4 h-4" />
                     </Button>
                   </Link>
 
                   <Link href={`/presentation/${ev.id}`} target="_blank">
-                    <Button variant="secondary" size="sm" className="px-3" title="Abrir Telão 4K">
+                    <Button variant="secondary" size="sm" className="px-2.5" title="Abrir Telão 4K">
                       <Tv className="w-4 h-4" />
                     </Button>
                   </Link>
+
+                  <Button
+                    variant="danger"
+                    size="sm"
+                    className="px-2.5 bg-rose-50 text-rose-600 hover:bg-rose-100 hover:text-rose-700 border border-rose-200"
+                    title="Excluir Evento"
+                    onClick={() => setEventToDelete(ev)}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
                 </div>
               </CardContent>
             </Card>
@@ -394,6 +428,44 @@ export default function EventsListPage() {
             </Button>
           </div>
         </form>
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        isOpen={!!eventToDelete}
+        onClose={() => setEventToDelete(null)}
+        title="Excluir Evento Definitivamente?"
+        description="Esta ação é permanente e irreversível."
+        maxWidth="md"
+      >
+        <div className="space-y-4">
+          <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 flex items-start gap-3">
+            <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
+            <div className="text-xs text-rose-900 leading-relaxed">
+              Você está prestes a excluir o evento <strong className="font-bold">{eventToDelete?.name}</strong>.
+              Todos os participantes ({eventToDelete?._count.participants || 0}), prêmios ({eventToDelete?._count.prizes || 0}) e histórico de sorteios deste evento serão apagados.
+            </div>
+          </div>
+
+          <div className="flex items-center justify-end gap-3 pt-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setEventToDelete(null)}
+              disabled={isDeleting}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              variant="danger"
+              isLoading={isDeleting}
+              onClick={handleDeleteConfirm}
+            >
+              Sim, Excluir Evento
+            </Button>
+          </div>
+        </div>
       </Modal>
     </div>
   );

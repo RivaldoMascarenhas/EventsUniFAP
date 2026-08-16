@@ -101,8 +101,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session || session.user.role !== "ADMIN") {
-      return NextResponse.json({ error: "Apenas administradores podem excluir eventos" }, { status: 403 });
+    if (!session || (session.user.role !== "ADMIN" && session.user.role !== "OPERATOR")) {
+      return NextResponse.json({ error: "Apenas administradores e operadores podem excluir eventos" }, { status: 403 });
     }
 
     const { id } = await params;
@@ -112,7 +112,17 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
       return NextResponse.json({ error: "Evento não encontrado" }, { status: 404 });
     }
 
-    await prisma.event.delete({ where: { id } });
+    // Clean cascade deletion of all related data
+    await prisma.$transaction([
+      prisma.idempotencyRecord.deleteMany({ where: { eventId: id } }),
+      prisma.winner.deleteMany({ where: { eventId: id } }),
+      prisma.draw.deleteMany({ where: { eventId: id } }),
+      prisma.prize.deleteMany({ where: { eventId: id } }),
+      prisma.participant.deleteMany({ where: { eventId: id } }),
+      prisma.soundConfig.deleteMany({ where: { eventId: id } }),
+      prisma.eventTheme.deleteMany({ where: { eventId: id } }),
+      prisma.event.delete({ where: { id } }),
+    ]);
 
     await AuditService.log({
       userId: session.user.id,

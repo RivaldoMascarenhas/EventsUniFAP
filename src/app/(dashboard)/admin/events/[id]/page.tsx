@@ -73,6 +73,28 @@ export default function SingleEventPage({ params }: { params: Promise<{ id: stri
   const [importPreview, setImportPreview] = useState<any>(null);
   const [isImporting, setIsImporting] = useState(false);
 
+  // Delete State
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isDeletingEvent, setIsDeletingEvent] = useState(false);
+
+  const handleDeleteEvent = async () => {
+    try {
+      setIsDeletingEvent(true);
+      const res = await fetch(`/api/events/${id}`, {
+        method: "DELETE",
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Erro ao excluir evento");
+
+      success("Evento Excluído", "O evento foi removido com sucesso.");
+      router.push("/admin/events");
+    } catch (err: any) {
+      error("Erro ao excluir", err.message);
+    } finally {
+      setIsDeletingEvent(false);
+    }
+  };
+
   const downloadCsvTemplate = () => {
     const csvContent =
       "nome,matricula,cpf,curso,email,telefone\n" +
@@ -379,6 +401,13 @@ export default function SingleEventPage({ params }: { params: Promise<{ id: stri
                 Telão 4K
               </Button>
             </Link>
+            <Button
+              variant="danger"
+              leftIcon={<Trash2 className="w-4 h-4" />}
+              onClick={() => setIsDeleteModalOpen(true)}
+            >
+              Excluir
+            </Button>
           </div>
         }
       />
@@ -1289,6 +1318,44 @@ Pedro Henrique Valença,202310103,08434567890,Fisioterapia,pedro@aluno.unifapce.
             </Button>
             <Button type="button" variant="primary" onClick={() => setIsCsvHelpModalOpen(false)}>
               Entendi, Fechar
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Delete Event Confirmation Modal */}
+      <Modal
+        isOpen={isDeleteModalOpen}
+        onClose={() => setIsDeleteModalOpen(false)}
+        title="Excluir Evento Definitivamente?"
+        description="Esta ação é permanente e irreversível."
+        maxWidth="md"
+      >
+        <div className="space-y-4">
+          <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
+            <div className="text-xs text-rose-900 leading-relaxed">
+              Você está prestes a excluir permanentemente o evento <strong className="font-bold">{event?.name}</strong>.
+              Todos os participantes ({event?._count?.participants || 0}), prêmios ({event?._count?.prizes || 0}) e histórico de sorteios deste evento serão apagados definitivamente.
+            </div>
+          </div>
+
+          <div className="flex items-center justify-end gap-3 pt-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setIsDeleteModalOpen(false)}
+              disabled={isDeletingEvent}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              variant="danger"
+              isLoading={isDeletingEvent}
+              onClick={handleDeleteEvent}
+            >
+              Sim, Excluir Evento
             </Button>
           </div>
         </div>
