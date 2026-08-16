@@ -147,7 +147,7 @@ function PresentationContent({ eventId }: { eventId: string }) {
   };
 
   // Central State Dispatcher for all realtime transports (Supabase Broadcast, SSE, Polling)
-  const handleIncomingState = (payload: any) => {
+  const handleIncomingState = (payload: any, isInitialLoad = false) => {
     if (!payload || !payload.type) return;
 
     const drawKey = payload.drawId || payload.winner?.drawId || (payload.winner?.drawnNumber ? `num-${payload.winner.drawnNumber}-${payload.winner.prize?.id || ''}` : null);
@@ -182,22 +182,26 @@ function PresentationContent({ eventId }: { eventId: string }) {
       if (payload.prize) setCurrentPrize(payload.prize);
       setCurrentWinner(null);
     } else if (payload.type === "draw:start") {
-      if (!isAnimatingRef.current) {
+      if (isInitialLoad) {
+        setState("IDLE");
+      } else if (!isAnimatingRef.current) {
         setState("DRAWING");
         if (payload.prize) setCurrentPrize(payload.prize);
         soundEngine.play("DRAW_START");
       }
     } else if (payload.type === "draw:result") {
       if (payload.winner) {
-        // If already animated this draw, directly show result without looping
-        if (drawKey && lastAnimatedDrawIdRef.current === drawKey) {
+        const isAlreadyProcessed = drawKey && lastAnimatedDrawIdRef.current === drawKey;
+        if (drawKey) lastAnimatedDrawIdRef.current = drawKey;
+
+        // If page is just loading, or already played this draw, show RESULT statically without spinning roulette
+        if (isInitialLoad || isAlreadyProcessed) {
           if (!isAnimatingRef.current) {
             setCurrentWinner(payload.winner);
             if (payload.winner.prize || payload.prize) setCurrentPrize(payload.winner.prize || payload.prize);
             setState("RESULT");
           }
         } else {
-          if (drawKey) lastAnimatedDrawIdRef.current = drawKey;
           startDrawRollAnimation(payload.winner);
         }
       }
@@ -219,7 +223,7 @@ function PresentationContent({ eventId }: { eventId: string }) {
     channel
       .on("broadcast", { event: "state_change" }, ({ payload }) => {
         setIsConnected(true);
-        handleIncomingState(payload);
+        handleIncomingState(payload, false);
       })
       .subscribe((status) => {
         if (status === "SUBSCRIBED") {
@@ -232,12 +236,16 @@ function PresentationContent({ eventId }: { eventId: string }) {
     };
   }, [eventId]);
 
-  // 2. Secondary: Background Polling Sync (Runs every 2 seconds to guarantee mobile phones never desync)
+  // 2. Secondary: Background Polling Sync (Runs every 2.5 seconds to guarantee mobile phones never desync)
   useEffect(() => {
     let isMounted = true;
+    let isInitialSync = true;
+
     const syncState = async () => {
       // Never interrupt live 60fps rolling animation with network fetch
       if (isAnimatingRef.current) return;
+
+      const isFirst = isInitialSync;
 
       try {
         const res = await fetch(`/api/events/${eventId}/realtime?poll=true${token ? `&token=${token}` : ""}`, {
@@ -247,11 +255,13 @@ function PresentationContent({ eventId }: { eventId: string }) {
           const payload = await res.json();
           setIsConnected(true);
           if (payload && payload.state) {
-            handleIncomingState(payload);
+            handleIncomingState(payload, isFirst);
           }
         }
       } catch {
         // Fallback
+      } finally {
+        isInitialSync = false;
       }
     };
 
@@ -278,7 +288,7 @@ function PresentationContent({ eventId }: { eventId: string }) {
       eventSource.onmessage = (e) => {
         try {
           const payload = JSON.parse(e.data);
-          handleIncomingState(payload);
+          handleIncomingState(payload, false);
         } catch (err) {
           console.error("Error parsing SSE payload", err);
         }
