@@ -1,0 +1,541 @@
+"use client";
+
+import React, { useState, useEffect, useRef, use, Suspense } from "react";
+import Image from "next/image";
+import { useSearchParams } from "next/navigation";
+import { soundEngine } from "@/lib/sound/soundEngine";
+import { fireInstitutionalConfetti } from "@/components/ui/ConfettiEffect";
+import { BrandLogo } from "@/components/branding/BrandLogo";
+import QRCode from "qrcode";
+import {
+  Trophy,
+  Sparkles,
+  Volume2,
+  VolumeX,
+  Maximize,
+  Minimize,
+  Building2,
+  QrCode,
+  Users,
+  Smartphone,
+  CheckCircle,
+  Wifi,
+  WifiOff,
+  Calendar,
+  MapPin,
+  ImageIcon,
+} from "lucide-react";
+import { padNumber, formatDate } from "@/lib/utils";
+import { motion, AnimatePresence } from "framer-motion";
+
+type PresentationState = "IDLE" | "SHOWING_QR_CODE" | "SHOWING_EVENT_LOGO" | "SHOWING_PRIZE" | "DRAWING" | "RESULT";
+
+function PresentationContent({ eventId }: { eventId: string }) {
+  const searchParams = useSearchParams();
+  const token = searchParams.get("token") || "";
+
+  const [event, setEvent] = useState<any>(null);
+  const [state, setState] = useState<PresentationState>("IDLE");
+  const [currentPrize, setCurrentPrize] = useState<any>(null);
+  const [currentWinner, setCurrentWinner] = useState<any>(null);
+  const [isConnected, setIsConnected] = useState(false);
+  const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>("");
+
+  const [soundEnabled, setSoundEnabled] = useState(true);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [rollingNumber, setRollingNumber] = useState("000");
+
+  const animationTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Initial event data fetch
+  const fetchEvent = async () => {
+    try {
+      const res = await fetch(`/api/events/${eventId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setEvent(data);
+
+        // Generate QR code for presentation
+        const appUrl = typeof window !== "undefined" ? window.location.origin : "";
+        const regUrl = `${appUrl}/public/event/${data.slug}`;
+        const qr = await QRCode.toDataURL(regUrl, {
+          width: 500,
+          margin: 2,
+          color: {
+            dark: "#002B49",
+            light: "#FFFFFF",
+          },
+        });
+        setQrCodeDataUrl(qr);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  useEffect(() => {
+    fetchEvent();
+  }, [eventId]);
+
+  // Execute Suspense Rolling animation when draw completes
+  const startDrawRollAnimation = (winnerData: any) => {
+    if (animationTimerRef.current) clearInterval(animationTimerRef.current);
+
+    setState("DRAWING");
+    soundEngine.play("DRAW_START");
+
+    let count = 0;
+    const totalSteps = 28; // ~2.2 seconds of suspense
+
+    const stepInterval = setInterval(() => {
+      count++;
+      const randomNum = Math.floor(Math.random() * 900) + 100;
+      setRollingNumber(padNumber(randomNum, 3));
+
+      if (count % 3 === 0) {
+        soundEngine.play("DRAW_TICK");
+      }
+
+      if (count === 20) {
+        soundEngine.play("DRAW_SLOWDOWN");
+      }
+
+      if (count >= totalSteps) {
+        clearInterval(stepInterval);
+        setCurrentWinner(winnerData);
+        setState("RESULT");
+
+        soundEngine.play("DRAW_RESULT");
+        setTimeout(() => {
+          soundEngine.play("WINNER");
+          fireInstitutionalConfetti();
+        }, 200);
+
+        fetchEvent();
+      }
+    }, 75);
+
+    animationTimerRef.current = stepInterval;
+  };
+
+  // Realtime SSE EventSource connection (STABLE: only depends on eventId and token)
+  useEffect(() => {
+    const sseUrl = `/api/events/${eventId}/realtime${token ? `?token=${token}` : ""}`;
+    const eventSource = new EventSource(sseUrl);
+
+    eventSource.onopen = () => {
+      setIsConnected(true);
+    };
+
+    eventSource.onmessage = (e) => {
+      try {
+        const payload = JSON.parse(e.data);
+
+        if (payload.type === "state:sync") {
+          setState(payload.state || "IDLE");
+          if (payload.prize) setCurrentPrize(payload.prize);
+          if (payload.winner) setCurrentWinner(payload.winner);
+        } else if (payload.type === "qr:show") {
+          setState("SHOWING_QR_CODE");
+        } else if (payload.type === "logo:show") {
+          setState("SHOWING_EVENT_LOGO");
+        } else if (payload.type === "idle:show") {
+          setState("IDLE");
+          setCurrentWinner(null);
+        } else if (payload.type === "prize:show") {
+          setState("SHOWING_PRIZE");
+          setCurrentPrize(payload.prize);
+          setCurrentWinner(null);
+        } else if (payload.type === "draw:start") {
+          setState("DRAWING");
+          soundEngine.play("DRAW_START");
+        } else if (payload.type === "draw:result") {
+          if (payload.winner) {
+            startDrawRollAnimation(payload.winner);
+          }
+        } else if (payload.type === "draw:cancel") {
+          if (animationTimerRef.current) clearInterval(animationTimerRef.current);
+          setState("IDLE");
+          setCurrentWinner(null);
+        }
+      } catch (err) {
+        console.error("Error parsing SSE payload", err);
+      }
+    };
+
+    eventSource.onerror = () => {
+      setIsConnected(false);
+    };
+
+    return () => {
+      if (animationTimerRef.current) clearInterval(animationTimerRef.current);
+      eventSource.close();
+    };
+  }, [eventId, token]);
+
+  const toggleSound = () => {
+    const next = !soundEnabled;
+    setSoundEnabled(next);
+    soundEngine.setEnabled(next);
+  };
+
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(() => {});
+      setIsFullscreen(true);
+    } else {
+      document.exitFullscreen().catch(() => {});
+      setIsFullscreen(false);
+    }
+  };
+
+  // Keyboard shortcut listener
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key.toLowerCase() === "m") toggleSound();
+      if (e.key.toLowerCase() === "f") toggleFullscreen();
+    };
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, []);
+
+  return (
+    <div className="fixed inset-0 bg-mesh-presentation text-white flex flex-col justify-between p-6 sm:p-10 select-none overflow-hidden font-sans">
+      {/* Background Aura */}
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[700px] bg-unifap-light/10 rounded-full blur-[160px] pointer-events-none" />
+      <div className="absolute bottom-10 right-10 w-[500px] h-[500px] bg-unifap-gold/10 rounded-full blur-[140px] pointer-events-none" />
+
+      {/* Top Header: UniFAP Official Brand Logo & Status */}
+      <header className="relative z-20 flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <BrandLogo variant="white" width={220} height={56} priority />
+          <div className="hidden md:block h-8 w-[1px] bg-white/20" />
+          <div className="hidden md:block">
+            <h2 className="text-sm font-bold text-white tracking-wide">
+              {event?.name || "Semana Acadêmica UniFAP 2026"}
+            </h2>
+            <p className="text-[11px] text-unifap-gold font-semibold uppercase tracking-wider">
+              Centro Universitário Paraíso — UniFAP
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3">
+          {/* Live Sync Status indicator */}
+          <div
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold backdrop-blur-md border ${
+              isConnected
+                ? "bg-emerald-950/40 text-emerald-300 border-emerald-500/30"
+                : "bg-rose-950/40 text-rose-300 border-rose-500/30"
+            }`}
+          >
+            {isConnected ? <Wifi className="w-3.5 h-3.5" /> : <WifiOff className="w-3.5 h-3.5 animate-pulse" />}
+            <span className="text-[11px]">{isConnected ? "Sincronizado" : "Reconectando..."}</span>
+          </div>
+
+          <button
+            onClick={toggleSound}
+            className="p-3 rounded-2xl bg-white/10 hover:bg-white/20 border border-white/15 text-white transition backdrop-blur-md"
+            title={soundEnabled ? "Desativar Sons (M)" : "Ativar Sons (M)"}
+          >
+            {soundEnabled ? <Volume2 className="w-5 h-5 text-unifap-gold" /> : <VolumeX className="w-5 h-5 text-slate-400" />}
+          </button>
+          <button
+            onClick={toggleFullscreen}
+            className="p-3 rounded-2xl bg-white/10 hover:bg-white/20 border border-white/15 text-white transition backdrop-blur-md"
+            title="Alternar Tela Cheia (F)"
+          >
+            {isFullscreen ? <Minimize className="w-5 h-5" /> : <Maximize className="w-5 h-5" />}
+          </button>
+        </div>
+      </header>
+
+      {/* Main Center Stage */}
+      <main className="relative z-20 flex-1 flex flex-col items-center justify-center my-auto text-center px-4">
+        {/* STATE 1: IDLE */}
+        {state === "IDLE" && (
+          <motion.div
+            key="idle"
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.25 }}
+            className="space-y-6 max-w-3xl w-full"
+          >
+            <div className="inline-flex items-center gap-2 px-5 py-2 rounded-full bg-unifap-gold/20 border border-unifap-gold/40 text-unifap-gold text-sm font-extrabold uppercase tracking-widest backdrop-blur-md">
+              <Sparkles className="w-4 h-4" />
+              <span>Palco Oficial de Premiações</span>
+            </div>
+
+            <h1 className="text-4xl sm:text-7xl font-black text-white tracking-tight leading-tight drop-shadow-2xl">
+              Uni<span className="text-unifap-gold">FAP</span> Sorteios
+            </h1>
+
+            <p className="text-lg sm:text-xl text-slate-300 max-w-xl mx-auto font-light leading-relaxed">
+              Aguardando o operador autorizar a próxima rodada de sorteio no palco.
+            </p>
+
+            <div className="pt-2">
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-xs text-slate-300">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+                <span>Transmissão em tempo real ativa no auditório</span>
+              </div>
+            </div>
+          </motion.div>
+        )}
+
+        {/* STATE 2: SHOWING_EVENT_LOGO (PROJETAR LOGO DO EVENTO) */}
+        {state === "SHOWING_EVENT_LOGO" && (
+          <motion.div
+            key="event-logo"
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.3 }}
+            className="space-y-6 max-w-4xl w-full flex flex-col items-center"
+          >
+            <div className="inline-flex items-center gap-2 px-5 py-2 rounded-full bg-unifap-gold text-slate-950 text-xs sm:text-sm font-black uppercase tracking-widest shadow-xl">
+              <Sparkles className="w-4 h-4" />
+              <span>Evento Oficial UniFAP</span>
+            </div>
+
+            {/* Custom Logo / Emblem Presentation */}
+            {event?.logoUrl || event?.coverUrl ? (
+              <div className="p-4 sm:p-6 rounded-3xl bg-white/10 backdrop-blur-xl border border-white/20 shadow-[0_0_60px_rgba(234,160,35,0.25)] max-w-lg mx-auto">
+                <img
+                  src={event.logoUrl || event.coverUrl}
+                  alt={event.name}
+                  className="max-h-56 sm:max-h-72 w-auto object-contain mx-auto rounded-2xl"
+                />
+              </div>
+            ) : (
+              <div className="p-8 rounded-3xl bg-white/10 backdrop-blur-xl border border-white/20 shadow-[0_0_60px_rgba(234,160,35,0.25)] flex flex-col items-center">
+                <BrandLogo variant="square-white" width={120} height={120} className="w-24 h-24 sm:w-32 sm:h-32 mb-4" />
+                <div className="text-xs uppercase tracking-widest text-unifap-gold font-bold">
+                  Centro Universitário Paraíso
+                </div>
+              </div>
+            )}
+
+            <div>
+              <h1 className="text-3xl sm:text-6xl font-black text-white tracking-tight leading-tight drop-shadow-2xl">
+                {event?.name || "Semana Acadêmica UniFAP 2026"}
+              </h1>
+              {event?.description && (
+                <p className="text-sm sm:text-lg text-slate-300 font-light mt-3 max-w-2xl mx-auto leading-relaxed">
+                  {event.description}
+                </p>
+              )}
+            </div>
+
+            {/* Event Meta Badges */}
+            <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+              {event?.date && (
+                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-2xl bg-white/10 border border-white/15 text-xs sm:text-sm text-slate-200">
+                  <Calendar className="w-4 h-4 text-unifap-gold" />
+                  <span>{formatDate(event.date)}</span>
+                </div>
+              )}
+              {event?.location && (
+                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-2xl bg-white/10 border border-white/15 text-xs sm:text-sm text-slate-200">
+                  <MapPin className="w-4 h-4 text-unifap-light" />
+                  <span>{event.location}</span>
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
+
+        {/* STATE 3: SHOWING_QR_CODE */}
+        {state === "SHOWING_QR_CODE" && (
+          <motion.div
+            key="qrcode"
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.25 }}
+            className="space-y-6 max-w-4xl w-full flex flex-col items-center"
+          >
+            <div className="inline-flex items-center gap-2 px-5 py-2 rounded-full bg-unifap-gold text-slate-950 text-xs sm:text-sm font-black uppercase tracking-widest shadow-lg">
+              <Smartphone className="w-4 h-4" />
+              <span>Inscrições Abertas no Auditório</span>
+            </div>
+
+            <div>
+              <h1 className="text-3xl sm:text-5xl font-black text-white tracking-tight drop-shadow-xl">
+                Escaneie o QR Code e Participe!
+              </h1>
+              <p className="text-sm sm:text-lg text-slate-300 font-light mt-2 max-w-2xl mx-auto">
+                Aponte a câmera do seu celular para cadastrar seu nome e gerar seu <strong className="text-unifap-gold">Número da Sorte</strong> oficial.
+              </p>
+            </div>
+
+            {/* QR Code Card with Glow */}
+            <div className="relative group p-4 sm:p-6 rounded-3xl bg-white/10 backdrop-blur-xl border-2 border-unifap-gold/60 shadow-[0_0_50px_rgba(234,160,35,0.3)] flex flex-col items-center">
+              {qrCodeDataUrl ? (
+                <div className="bg-white p-4 rounded-2xl shadow-2xl">
+                  <img
+                    src={qrCodeDataUrl}
+                    alt="QR Code Inscrição"
+                    className="w-56 h-56 sm:w-72 sm:h-72 object-contain"
+                  />
+                </div>
+              ) : (
+                <div className="w-64 h-64 bg-white/20 animate-pulse rounded-2xl flex items-center justify-center">
+                  <QrCode className="w-16 h-16 text-white/40" />
+                </div>
+              )}
+
+              <div className="mt-4 flex items-center gap-2 px-4 py-1.5 rounded-full bg-black/40 border border-white/15 text-xs text-blue-200 font-mono">
+                <span>unifapce.edu.br • Evento Oficial</span>
+              </div>
+            </div>
+
+            {/* Participants Counter badge */}
+            <div className="inline-flex items-center gap-2 px-5 py-2 rounded-2xl bg-white/10 border border-white/15 text-xs sm:text-sm text-slate-200">
+              <Users className="w-4 h-4 text-unifap-gold" />
+              <span>
+                <strong>{event?._count?.participants || event?.participants?.length || 0}</strong> participantes já inscritos
+              </span>
+            </div>
+          </motion.div>
+        )}
+
+        {/* STATE 4: SHOWING_PRIZE */}
+        {state === "SHOWING_PRIZE" && currentPrize && (
+          <motion.div
+            key="prize"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.25 }}
+            className="space-y-6 max-w-3xl w-full"
+          >
+            <div className="inline-flex items-center gap-2 px-5 py-2 rounded-full bg-unifap-gold/20 border border-unifap-gold/40 text-unifap-gold text-sm font-extrabold uppercase tracking-widest backdrop-blur-md">
+              <Trophy className="w-4 h-4" />
+              <span>Próximo Prêmio</span>
+            </div>
+
+            <h1 className="text-4xl sm:text-6xl font-black text-white tracking-tight leading-tight drop-shadow-lg">
+              {currentPrize.name}
+            </h1>
+
+            {currentPrize.description && (
+              <p className="text-base sm:text-lg text-slate-300 max-w-xl mx-auto leading-relaxed">
+                {currentPrize.description}
+              </p>
+            )}
+
+            {/* Sponsor Card */}
+            <div className="pt-4">
+              <div className="inline-flex items-center gap-4 px-6 py-3.5 rounded-2xl bg-white/10 border border-white/20 backdrop-blur-md shadow-2xl">
+                <div className="text-right">
+                  <div className="text-[10px] uppercase font-bold text-slate-300">Oferecimento Oficial</div>
+                  <div className="text-base font-extrabold text-unifap-gold">
+                    {currentPrize.sponsor?.name || "Centro Universitário Paraíso — UniFAP"}
+                  </div>
+                </div>
+                {currentPrize.sponsor?.logoUrl ? (
+                  <div className="w-14 h-14 rounded-xl bg-white/10 p-1 flex items-center justify-center">
+                    <img
+                      src={currentPrize.sponsor.logoUrl}
+                      alt="Logo Patrocinador"
+                      className="w-full h-full object-contain"
+                    />
+                  </div>
+                ) : (
+                  <Building2 className="w-8 h-8 text-unifap-gold" />
+                )}
+              </div>
+            </div>
+          </motion.div>
+        )}
+
+        {/* STATE 5: DRAWING (ROULETTE IN REALTIME) */}
+        {state === "DRAWING" && (
+          <motion.div
+            key="drawing"
+            initial={{ scale: 0.85, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ duration: 0.2 }}
+            className="space-y-4 max-w-3xl w-full"
+          >
+            <div className="text-sm sm:text-base font-extrabold uppercase tracking-widest text-unifap-gold animate-pulse">
+              SORTEANDO NÚMERO DA SORTE...
+            </div>
+
+            <div className="text-8xl sm:text-[180px] font-black font-mono tracking-widest text-white drop-shadow-[0_10px_40px_rgba(234,160,35,0.6)]">
+              {rollingNumber}
+            </div>
+
+            {currentPrize && (
+              <div className="text-lg font-bold text-slate-300">
+                Prêmio: <span className="text-white">{currentPrize.name}</span>
+              </div>
+            )}
+          </motion.div>
+        )}
+
+        {/* STATE 6: RESULT */}
+        {state === "RESULT" && currentWinner && (
+          <motion.div
+            key="result"
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ type: "spring", stiffness: 280, damping: 20 }}
+            className="space-y-6 max-w-4xl w-full"
+          >
+            <div className="inline-flex items-center gap-2 px-6 py-2 rounded-full bg-unifap-gold text-unifap-dark text-sm sm:text-base font-black uppercase tracking-widest shadow-2xl">
+              <Sparkles className="w-5 h-5 fill-current" />
+              PARABÉNS AO CONTEMPLADO!
+            </div>
+
+            {/* Giant Number Reveal */}
+            <div className="text-7xl sm:text-[140px] font-black font-mono text-white tracking-tight drop-shadow-[0_10px_50px_rgba(255,255,255,0.4)] leading-none">
+              #{padNumber(currentWinner.drawnNumber, 3)}
+            </div>
+
+            {/* Winner Name Banner */}
+            <div className="p-6 sm:p-8 rounded-3xl bg-white/15 border-2 border-unifap-gold/80 backdrop-blur-xl shadow-2xl">
+              <h2 className="text-3xl sm:text-5xl font-black text-unifap-gold tracking-tight">
+                {currentWinner.winner?.name || currentWinner.drawnName}
+              </h2>
+              {currentWinner.winner?.category && (
+                <p className="text-sm sm:text-base text-slate-200 font-semibold mt-2">
+                  {currentWinner.winner.category} {currentWinner.winner.registration ? `• Matrícula: ${currentWinner.winner.registration}` : ""}
+                </p>
+              )}
+            </div>
+
+            {/* Prize & Sponsor Showcase */}
+            <div className="flex flex-wrap items-center justify-center gap-4 text-sm text-slate-200">
+              <div className="px-5 py-2.5 rounded-xl bg-white/10 border border-white/20 backdrop-blur-md">
+                Prêmio: <strong className="text-white">{currentWinner.prize?.name || "Premiação Oficial"}</strong>
+              </div>
+              <div className="px-5 py-2.5 rounded-xl bg-white/10 border border-white/20 backdrop-blur-md">
+                Patrocínio: <strong className="text-unifap-gold">{currentWinner.prize?.sponsor?.name || "UniFAP"}</strong>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </main>
+
+      {/* Bottom Footer: Brand Watermark */}
+      <footer className="relative z-20 flex items-center justify-between border-t border-white/10 pt-4 text-xs text-slate-400">
+        <div className="flex items-center gap-2 font-semibold">
+          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+          <span>UniFAP Sorteios • Sistema Auditado e Criptografado</span>
+        </div>
+        <div>
+          Centro Universitário Paraíso — Juazeiro do Norte / CE
+        </div>
+      </footer>
+    </div>
+  );
+}
+
+export default function PresentationPage({ params }: { params: Promise<{ eventId: string }> }) {
+  const { eventId } = use(params);
+
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-slate-950 text-white flex items-center justify-center font-bold">Conectando ao Telão 4K...</div>}>
+      <PresentationContent eventId={eventId} />
+    </Suspense>
+  );
+}

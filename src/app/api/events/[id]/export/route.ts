@@ -1,0 +1,74 @@
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { ExportService, WinnerExportItem } from "@/lib/services/exportService";
+
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  try {
+    const { id: eventId } = await params;
+    const { searchParams } = new URL(req.url);
+    const format = searchParams.get("format") || "xlsx";
+
+    const event = await prisma.event.findUnique({
+      where: { id: eventId },
+      include: {
+        draws: {
+          include: {
+            prize: { include: { sponsor: true } },
+            winnerParticipant: true,
+            operator: true,
+          },
+          orderBy: { timestamp: "asc" },
+        },
+      },
+    });
+
+    if (!event) {
+      return NextResponse.json({ error: "Evento não encontrado" }, { status: 404 });
+    }
+
+    const exportItems: WinnerExportItem[] = event.draws.map((d) => ({
+      drawnNumber: d.drawnNumber || d.winnerParticipant.ticketNumber,
+      winnerName: d.winnerParticipant.name,
+      cpf: d.winnerParticipant.cpf,
+      registration: d.winnerParticipant.registration,
+      email: d.winnerParticipant.email,
+      phone: d.winnerParticipant.phone,
+      category: d.winnerParticipant.category,
+      prizeName: d.prize.name,
+      sponsorName: d.prize.sponsor?.name || "UniFAP",
+      drawDate: d.timestamp,
+      operatorName: d.operator?.name || "Sistema",
+    }));
+
+    if (format === "csv") {
+      const csv = ExportService.generateWinnersCsv(event.name, exportItems);
+      return new NextResponse(csv, {
+        headers: {
+          "Content-Type": "text/csv; charset=utf-8",
+          "Content-Disposition": `attachment; filename="resultados-${event.slug}.csv"`,
+        },
+      });
+    }
+
+    if (format === "html" || format === "pdf") {
+      const html = ExportService.generatePrintableHtmlReport(event.name, event.date, exportItems);
+      return new NextResponse(html, {
+        headers: {
+          "Content-Type": "text/html; charset=utf-8",
+        },
+      });
+    }
+
+    // Default: Excel XLSX
+    const buffer = ExportService.generateWinnersXlsx(event.name, exportItems);
+    return new NextResponse(new Uint8Array(buffer), {
+      headers: {
+        "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "Content-Disposition": `attachment; filename="resultados-${event.slug}.xlsx"`,
+      },
+    });
+  } catch (error: any) {
+    console.error("[GET /api/events/[id]/export]", error);
+    return NextResponse.json({ error: error.message || "Erro ao exportar dados" }, { status: 500 });
+  }
+}

@@ -1,0 +1,234 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id           String     @id @default(uuid())
+  name         String
+  email        String     @unique
+  passwordHash String
+  role         String     @default("OPERATOR")
+  active       Boolean    @default(true)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  drawsExecuted Draw[]
+  auditLogs     AuditLog[]
+
+  @@map("users")
+}
+
+model Event {
+  id                 String       @id @default(uuid())
+  name               String
+  slug               String       @unique
+  description        String?
+  date               DateTime?
+  time               String?
+  location           String?
+  logoUrl            String?
+  coverUrl           String?
+  status             String       @default("DRAFT")
+  primaryColor       String       @default("#002B49")
+  secondaryColor     String       @default("#EAA023")
+  allowRepeatWinners Boolean      @default(false)
+  maxParticipants    Int?
+  presentationToken  String?      @unique
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+
+  participants Participant[]
+  prizes       Prize[]
+  draws        Draw[]
+  winners      Winner[]
+  theme        EventTheme?
+  soundConfig  SoundConfig?
+
+  @@index([slug])
+  @@index([status])
+  @@index([presentationToken])
+  @@map("events")
+}
+
+model Sponsor {
+  id          String   @id @default(uuid())
+  name        String
+  logoUrl     String?
+  description String?
+  website     String?
+  instagram   String?
+  phone       String?
+  email       String?
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  prizes Prize[]
+
+  @@map("sponsors")
+}
+
+model Prize {
+  id             String      @id @default(uuid())
+  eventId        String
+  event          Event       @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  sponsorId      String?
+  sponsor        Sponsor?    @relation(fields: [sponsorId], references: [id], onDelete: SetNull)
+  name           String
+  description    String?
+  imageUrl       String?
+  quantity       Int         @default(1)
+  estimatedValue Float?
+  order          Int         @default(0)
+  status         String      @default("AVAILABLE")
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  draws   Draw[]
+  winners Winner[]
+
+  @@index([eventId])
+  @@index([sponsorId])
+  @@index([status])
+  @@map("prizes")
+}
+
+model Participant {
+  id           String    @id @default(uuid())
+  eventId      String
+  event        Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  name         String
+  cpf          String?
+  registration String?
+  email        String?
+  phone        String?
+  ticketNumber Int
+  category     String?
+  status       String    @default("ACTIVE")
+  isEligible   Boolean   @default(true)
+  isWinner     Boolean   @default(false)
+  anonymizedAt DateTime?
+  registeredAt DateTime  @default(now())
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  drawsWon Winner[]
+  Draw     Draw[]
+
+  @@unique([eventId, ticketNumber])
+  @@index([eventId])
+  @@index([eventId, isEligible])
+  @@index([cpf])
+  @@index([email])
+  @@map("participants")
+}
+
+model Draw {
+  id                  String     @id @default(uuid())
+  eventId             String
+  event               Event      @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  prizeId             String
+  prize               Prize      @relation(fields: [prizeId], references: [id], onDelete: Cascade)
+  drawType            String     @default("NUMBER")
+  winnerParticipantId String
+  winnerParticipant   Participant @relation(fields: [winnerParticipantId], references: [id], onDelete: Restrict)
+  drawnNumber         Int?
+  drawnName           String?
+  operatorId          String?
+  operator            User?      @relation(fields: [operatorId], references: [id], onDelete: SetNull)
+  timestamp           DateTime   @default(now())
+  notes               String?
+  status              String     @default("COMPLETED")
+
+  winners Winner[]
+
+  @@index([eventId])
+  @@index([prizeId])
+  @@index([winnerParticipantId])
+  @@map("draws")
+}
+
+model Winner {
+  id            String      @id @default(uuid())
+  eventId       String
+  event         Event       @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  prizeId       String
+  prize         Prize       @relation(fields: [prizeId], references: [id], onDelete: Cascade)
+  participantId String
+  participant   Participant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  drawId        String
+  draw          Draw        @relation(fields: [drawId], references: [id], onDelete: Cascade)
+  drawDate      DateTime    @default(now())
+  delivered     Boolean     @default(false)
+  notes         String?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@index([eventId])
+  @@index([prizeId])
+  @@index([participantId])
+  @@index([drawId])
+  @@map("winners")
+}
+
+model AuditLog {
+  id        String      @id @default(uuid())
+  userId    String?
+  user      User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action    String
+  entity    String
+  entityId  String?
+  ipAddress String?
+  userAgent String?
+  metadata  String?
+  timestamp DateTime    @default(now())
+
+  @@index([userId])
+  @@index([action])
+  @@index([entity])
+  @@index([timestamp])
+  @@map("audit_logs")
+}
+
+model IdempotencyRecord {
+  key       String   @id
+  eventId   String
+  result    String
+  createdAt DateTime @default(now())
+
+  @@index([eventId])
+  @@map("idempotency_records")
+}
+
+model EventTheme {
+  id                String   @id @default(uuid())
+  eventId           String   @unique
+  event             Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  heroTitle         String?
+  heroSubtitle      String?
+  backgroundPattern String   @default("modern-mesh")
+  customCss         String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@map("event_themes")
+}
+
+model SoundConfig {
+  id           String   @id @default(uuid())
+  eventId      String   @unique
+  event        Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  soundEnabled Boolean  @default(true)
+  volume       Float    @default(0.8)
+  soundPreset  String   @default("institutional")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("sound_configs")
+}
