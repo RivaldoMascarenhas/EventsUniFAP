@@ -23,29 +23,25 @@ export function BrandLogo({
 
   const assetMap = {
     default: {
-      src: "/branding/unifap-logo.png",
-      svgSrc: "/branding/unifap-logo.svg",
-      defaultW: 240,
-      defaultH: 64,
+      src: "/branding/unifap-logo.svg",
+      defaultW: 220,
+      defaultH: 60,
       aspect: "h-11 w-auto object-contain",
     },
     white: {
-      src: "/branding/unifap-logo-white.png",
-      svgSrc: "/branding/unifap-logo-white.svg",
-      defaultW: 240,
-      defaultH: 64,
+      src: "/branding/unifap-logo-white.svg",
+      defaultW: 220,
+      defaultH: 60,
       aspect: "h-11 w-auto object-contain",
     },
     square: {
-      src: "/branding/unifap-logo-square.png",
-      svgSrc: "/branding/unifap-logo-square.svg",
+      src: "/branding/unifap-logo-square.svg",
       defaultW: 56,
       defaultH: 56,
       aspect: "w-11 h-11 object-contain",
     },
     "square-white": {
-      src: "/branding/unifap-logo-square-white.png",
-      svgSrc: "/branding/unifap-logo-square.svg",
+      src: "/branding/unifap-logo-square.svg",
       defaultW: 56,
       defaultH: 56,
       aspect: "w-11 h-11 object-contain",

@@ -16,13 +16,11 @@ export const metadata: Metadata = {
   icons: {
     icon: [
       { url: "/favicon.svg", type: "image/svg+xml" },
-      { url: "/favicon.png", type: "image/png" },
       { url: "/branding/unifap-logo-square.svg", type: "image/svg+xml" },
-      { url: "/branding/unifap-logo-square.png", type: "image/png" },
     ],
-    shortcut: ["/favicon.png", "/branding/unifap-logo-square.png"],
+    shortcut: ["/favicon.svg", "/branding/unifap-logo-square.svg"],
     apple: [
-      { url: "/branding/unifap-logo-square.png", sizes: "180x180", type: "image/png" },
+      { url: "/branding/unifap-logo-square.svg", type: "image/svg+xml" },
     ],
   },
   authors: [{ name: "Centro Universitário Paraíso - UniFAP" }],
