@@ -79,6 +79,8 @@ export default function EventsListPage() {
     status: "ACTIVE",
     allowRepeatWinners: false,
     maxParticipants: "",
+    registrationOpenRule: "IMMEDIATE",
+    registrationCustomOpensAt: "",
   });
 
   const fetchEvents = async (silent = false) => {
@@ -126,6 +128,7 @@ export default function EventsListPage() {
         body: JSON.stringify({
           ...formData,
           maxParticipants: formData.maxParticipants ? parseInt(String(formData.maxParticipants), 10) : null,
+          registrationCustomOpensAt: formData.registrationCustomOpensAt ? formData.registrationCustomOpensAt : null,
         }),
       });
 
@@ -146,6 +149,8 @@ export default function EventsListPage() {
         status: "ACTIVE",
         allowRepeatWinners: false,
         maxParticipants: "",
+        registrationOpenRule: "IMMEDIATE",
+        registrationCustomOpensAt: "",
       });
       fetchEvents();
     } catch (err: any) {
@@ -448,6 +453,38 @@ export default function EventsListPage() {
             value={formData.logoUrl}
             onChange={(url) => setFormData({ ...formData, logoUrl: url || "", coverUrl: url || "" })}
           />
+
+          <div className="p-4 rounded-xl bg-blue-50/60 border border-blue-200/80 space-y-3">
+            <div>
+              <Label required>Regra de Abertura das Inscrições (QR Code)</Label>
+              <select
+                className="flex h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-unifap-navy"
+                value={formData.registrationOpenRule}
+                onChange={(e) => setFormData({ ...formData, registrationOpenRule: e.target.value })}
+              >
+                <option value="IMMEDIATE">Abertas Imediatamente (desde a criação/agendamento)</option>
+                <option value="1_HOUR_BEFORE">1 Hora Antes do Início do Evento</option>
+                <option value="2_HOURS_BEFORE">2 Horas Antes do Início do Evento</option>
+                <option value="ON_EVENT_START">No Horário de Início do Evento</option>
+                <option value="CUSTOM">Data e Horário Personalizado</option>
+              </select>
+              <p className="text-[11px] text-slate-500 mt-1">
+                Define quando os participantes poderão escanear o QR Code e emitir seus bilhetes da sorte.
+              </p>
+            </div>
+
+            {formData.registrationOpenRule === "CUSTOM" && (
+              <div>
+                <Label required>Data e Hora de Abertura das Inscrições</Label>
+                <Input
+                  type="datetime-local"
+                  value={formData.registrationCustomOpensAt}
+                  onChange={(e) => setFormData({ ...formData, registrationCustomOpensAt: e.target.value })}
+                  required
+                />
+              </div>
+            )}
+          </div>
 
           <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between">
             <div>

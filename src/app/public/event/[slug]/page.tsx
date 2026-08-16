@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, use } from "react";
+import React, { useState, useEffect, use, useCallback } from "react";
 import Image from "next/image";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -24,8 +24,10 @@ import {
   GraduationCap,
   Copy,
   ShieldCheck,
+  RefreshCw,
+  AlertCircle,
 } from "lucide-react";
-import { formatDate, padNumber } from "@/lib/utils";
+import { formatDate, formatDateTime, padNumber } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { BrandLogo } from "@/components/branding/BrandLogo";
 
@@ -37,6 +39,7 @@ export default function PublicEventRegistrationPage({ params }: { params: Promis
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [registeredTicket, setRegisteredTicket] = useState<any>(null);
+  const [countdown, setCountdown] = useState<string>("");
 
   const {
     register,
@@ -46,6 +49,7 @@ export default function PublicEventRegistrationPage({ params }: { params: Promis
   } = useForm<PublicRegistrationInput>({
     resolver: zodResolver(publicRegistrationSchema),
     defaultValues: {
+      eventId: "",
       name: "",
       registration: "",
       email: "",
@@ -54,31 +58,63 @@ export default function PublicEventRegistrationPage({ params }: { params: Promis
     },
   });
 
-  useEffect(() => {
-    async function loadEvent() {
-      if (!slug) return;
-      try {
-        setIsLoading(true);
-        // Find public event details by slug
-        const res = await fetch(`/api/public/events/${slug}`, {
-          cache: "no-store",
-        });
-        if (res.ok) {
-          const found = await res.json();
-          setEvent(found);
-          setValue("eventId", found.id);
-        } else {
-          setEvent(null);
-        }
-      } catch (err) {
-        console.error(err);
+  const loadEvent = useCallback(async () => {
+    if (!slug) return;
+    try {
+      setIsLoading(true);
+      const res = await fetch(`/api/public/events/${slug}`, {
+        cache: "no-store",
+      });
+      if (res.ok) {
+        const found = await res.json();
+        setEvent(found);
+        setValue("eventId", found.id);
+      } else {
         setEvent(null);
-      } finally {
-        setIsLoading(false);
       }
+    } catch (err) {
+      console.error(err);
+      setEvent(null);
+    } finally {
+      setIsLoading(false);
     }
-    loadEvent();
   }, [slug, setValue]);
+
+  useEffect(() => {
+    loadEvent();
+  }, [loadEvent]);
+
+  const isRegistrationOpen = event?.registrationStatus?.isOpen ?? true;
+
+  // Live Countdown effect if registration is scheduled for a future moment
+  useEffect(() => {
+    if (!event?.registrationStatus?.opensAt || isRegistrationOpen) return;
+
+    const opensAtTime = new Date(event.registrationStatus.opensAt).getTime();
+
+    const updateTimer = () => {
+      const diff = opensAtTime - Date.now();
+      if (diff <= 0) {
+        setCountdown("Inscrições abrindo...");
+        loadEvent();
+        return;
+      }
+
+      const hours = Math.floor(diff / (1000 * 60 * 60));
+      const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      const secs = Math.floor((diff % (1000 * 60)) / 1000);
+
+      if (hours > 0) {
+        setCountdown(`${hours}h ${padNumber(mins, 2)}m ${padNumber(secs, 2)}s`);
+      } else {
+        setCountdown(`${padNumber(mins, 2)}m ${padNumber(secs, 2)}s`);
+      }
+    };
+
+    updateTimer();
+    const interval = setInterval(updateTimer, 1000);
+    return () => clearInterval(interval);
+  }, [event, isRegistrationOpen, loadEvent]);
 
   const onSubmit = async (data: PublicRegistrationInput) => {
     if (!event) return;
@@ -152,7 +188,63 @@ export default function PublicEventRegistrationPage({ params }: { params: Promis
       {/* Main Container */}
       <div className="w-full max-w-lg mx-auto flex-1 flex flex-col justify-center my-2">
         <AnimatePresence mode="wait">
-          {!registeredTicket ? (
+          {!isRegistrationOpen ? (
+            /* Registration NOT OPEN Yet - Countdown / Notice Screen */
+            <motion.div
+              key="closed"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="glass-panel rounded-3xl p-6 sm:p-8 shadow-2xl border border-white/40 text-center space-y-5"
+            >
+              <div className="w-16 h-16 rounded-2xl bg-amber-500/10 text-amber-500 border border-amber-500/20 flex items-center justify-center mx-auto shadow-sm">
+                <Clock className="w-8 h-8 animate-pulse text-amber-600" />
+              </div>
+
+              <div>
+                <Badge variant="gold" className="mb-2">Inscrições em Breve</Badge>
+                <h1 className="text-xl font-extrabold text-unifap-navy">{event.name}</h1>
+                <p className="text-xs text-slate-600 mt-2 leading-relaxed max-w-sm mx-auto">
+                  {event.registrationStatus?.reason || "As inscrições para este evento ainda não foram abertas."}
+                </p>
+              </div>
+
+              {countdown && (
+                <div className="p-4 rounded-2xl bg-slate-900 text-white border border-slate-800 shadow-inner">
+                  <div className="text-[10px] uppercase font-bold tracking-widest text-unifap-gold mb-1">
+                    Abertura das Inscrições em
+                  </div>
+                  <div className="text-3xl sm:text-4xl font-mono font-black text-amber-400 tracking-wider">
+                    {countdown}
+                  </div>
+                </div>
+              )}
+
+              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 text-left text-xs space-y-2 text-slate-600">
+                {event.date && (
+                  <div className="flex items-center gap-2">
+                    <Calendar className="w-4 h-4 text-unifap-navy" />
+                    <span><strong>Data do Evento:</strong> {formatDate(event.date)} {event.time ? `às ${event.time}` : ""}</span>
+                  </div>
+                )}
+                {event.location && (
+                  <div className="flex items-center gap-2">
+                    <MapPin className="w-4 h-4 text-unifap-navy" />
+                    <span><strong>Local:</strong> {event.location}</span>
+                  </div>
+                )}
+              </div>
+
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={loadEvent}
+                leftIcon={<RefreshCw className="w-4 h-4" />}
+              >
+                Atualizar Página
+              </Button>
+            </motion.div>
+          ) : !registeredTicket ? (
             /* Registration Form */
             <motion.div
               key="form"

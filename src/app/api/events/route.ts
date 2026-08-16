@@ -78,6 +78,8 @@ export async function POST(req: NextRequest) {
         secondaryColor: validatedData.secondaryColor,
         allowRepeatWinners: validatedData.allowRepeatWinners,
         maxParticipants: validatedData.maxParticipants,
+        registrationOpenRule: validatedData.registrationOpenRule,
+        registrationCustomOpensAt: validatedData.registrationCustomOpensAt ? new Date(validatedData.registrationCustomOpensAt) : null,
         soundConfig: {
           create: {
             soundEnabled: true,

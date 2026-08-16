@@ -33,11 +33,12 @@ import {
   ShieldCheck,
   Sparkles,
   HelpCircle,
-  FileDown,
+  Share2,
   Lock,
 } from "lucide-react";
 import { formatDate, formatDateTime, formatCurrency, padNumber, maskCPF } from "@/lib/utils";
 import { ImageUpload } from "@/components/ui/ImageUpload";
+import { WinnerShareModal } from "@/components/events/WinnerShareModal";
 import QRCode from "qrcode";
 import Image from "next/image";
 
@@ -150,6 +151,7 @@ export default function SingleEventPage({ params }: { params: Promise<{ id: stri
 
   // Results State
   const [results, setResults] = useState<any[]>([]);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
 
   // Edit Event State
   const [isEditEventModalOpen, setIsEditEventModalOpen] = useState(false);
@@ -164,6 +166,8 @@ export default function SingleEventPage({ params }: { params: Promise<{ id: stri
     status: "ACTIVE",
     allowRepeatWinners: false,
     maxParticipants: "",
+    registrationOpenRule: "IMMEDIATE",
+    registrationCustomOpensAt: "",
     logoUrl: "",
   });
 
@@ -179,6 +183,8 @@ export default function SingleEventPage({ params }: { params: Promise<{ id: stri
       status: event.status || "ACTIVE",
       allowRepeatWinners: !!event.allowRepeatWinners,
       maxParticipants: event.maxParticipants !== null && event.maxParticipants !== undefined ? String(event.maxParticipants) : "",
+      registrationOpenRule: event.registrationOpenRule || "IMMEDIATE",
+      registrationCustomOpensAt: event.registrationCustomOpensAt ? new Date(event.registrationCustomOpensAt).toISOString().slice(0, 16) : "",
       logoUrl: event.logoUrl || event.coverUrl || "",
     });
     setIsEditEventModalOpen(true);
@@ -200,6 +206,8 @@ export default function SingleEventPage({ params }: { params: Promise<{ id: stri
           ...editFormData,
           date: editFormData.date ? editFormData.date : null,
           maxParticipants: editFormData.maxParticipants ? parseInt(String(editFormData.maxParticipants), 10) : null,
+          registrationOpenRule: editFormData.registrationOpenRule,
+          registrationCustomOpensAt: editFormData.registrationCustomOpensAt ? editFormData.registrationCustomOpensAt : null,
           coverUrl: editFormData.logoUrl,
         }),
       });
@@ -559,7 +567,7 @@ export default function SingleEventPage({ params }: { params: Promise<{ id: stri
               )}
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 p-4 rounded-xl bg-slate-50 border border-slate-100">
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 p-4 rounded-xl bg-slate-50 border border-slate-100">
                 <div>
                   <div className="text-[10px] uppercase font-bold text-slate-400">Status</div>
                   <div className="mt-1"><StatusBadge status={event.status} /></div>
@@ -568,6 +576,20 @@ export default function SingleEventPage({ params }: { params: Promise<{ id: stri
                   <div className="text-[10px] uppercase font-bold text-slate-400">Capacidade Máxima</div>
                   <div className="text-xs font-bold text-slate-800 mt-1">
                     {event.maxParticipants ? `${event.maxParticipants} vagas` : "Ilimitada"}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-[10px] uppercase font-bold text-slate-400">Abertura das Inscrições</div>
+                  <div className="text-xs font-bold text-slate-800 mt-1">
+                    {event.registrationOpenRule === "1_HOUR_BEFORE"
+                      ? "1h Antes do Evento"
+                      : event.registrationOpenRule === "2_HOURS_BEFORE"
+                      ? "2h Antes do Evento"
+                      : event.registrationOpenRule === "ON_EVENT_START"
+                      ? "No Início do Evento"
+                      : event.registrationOpenRule === "CUSTOM"
+                      ? "Data Personalizada"
+                      : "Abertas (Imediato)"}
                   </div>
                 </div>
                 <div>
@@ -953,7 +975,15 @@ export default function SingleEventPage({ params }: { params: Promise<{ id: stri
             <h3 className="text-sm font-bold text-unifap-navy uppercase tracking-wider">
               Ata de Ganhadores e Sorteios Realizados
             </h3>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                variant="gold"
+                size="sm"
+                onClick={() => setIsShareModalOpen(true)}
+                leftIcon={<Share2 className="w-4 h-4 text-slate-950" />}
+              >
+                Divulgar no WhatsApp / Card
+              </Button>
               <a href={`/api/events/${event.id}/export?format=xlsx`} download>
                 <Button variant="outline" size="sm" leftIcon={<FileSpreadsheet className="w-4 h-4 text-emerald-600" />}>
                   Exportar Excel (.xlsx)
@@ -1544,6 +1574,38 @@ export default function SingleEventPage({ params }: { params: Promise<{ id: stri
             onChange={(url) => setEditFormData({ ...editFormData, logoUrl: url || "" })}
           />
 
+          <div className="p-4 rounded-xl bg-blue-50/60 border border-blue-200/80 space-y-3">
+            <div>
+              <Label required>Regra de Abertura das Inscrições (QR Code)</Label>
+              <select
+                className="flex h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-unifap-navy"
+                value={editFormData.registrationOpenRule}
+                onChange={(e) => setEditFormData({ ...editFormData, registrationOpenRule: e.target.value })}
+              >
+                <option value="IMMEDIATE">Abertas Imediatamente (desde a criação/agendamento)</option>
+                <option value="1_HOUR_BEFORE">1 Hora Antes do Início do Evento</option>
+                <option value="2_HOURS_BEFORE">2 Horas Antes do Início do Evento</option>
+                <option value="ON_EVENT_START">No Horário de Início do Evento</option>
+                <option value="CUSTOM">Data e Horário Personalizado</option>
+              </select>
+              <p className="text-[11px] text-slate-500 mt-1">
+                Define quando os participantes poderão escanear o QR Code e emitir seus bilhetes da sorte.
+              </p>
+            </div>
+
+            {editFormData.registrationOpenRule === "CUSTOM" && (
+              <div>
+                <Label required>Data e Hora de Abertura das Inscrições</Label>
+                <Input
+                  type="datetime-local"
+                  value={editFormData.registrationCustomOpensAt}
+                  onChange={(e) => setEditFormData({ ...editFormData, registrationCustomOpensAt: e.target.value })}
+                  required
+                />
+              </div>
+            )}
+          </div>
+
           <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between">
             <div>
               <div className="text-xs font-bold text-slate-800">Permitir Vencedores Repetidos?</div>
@@ -1701,6 +1763,19 @@ Pedro Henrique Valença,202310103,08434567890,Fisioterapia,pedro@aluno.unifapce.
           </div>
         </div>
       </Modal>
+
+      {/* Modal: Share Winners */}
+      {event && (
+        <WinnerShareModal
+          isOpen={isShareModalOpen}
+          onClose={() => setIsShareModalOpen(false)}
+          eventName={event.name}
+          eventDate={event.date}
+          eventSlug={event.slug}
+          eventId={event.id}
+          winners={results}
+        />
+      )}
     </div>
   );
 }

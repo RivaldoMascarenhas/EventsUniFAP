@@ -6,7 +6,7 @@ import {
   prizeSchema,
   sponsorSchema,
 } from "../src/lib/validations";
-import { maskCPF, isValidCPF } from "../src/lib/utils";
+import { maskCPF, isValidCPF, getEventRegistrationStatus } from "../src/lib/utils";
 
 describe("Zod Validation Schemas Tests", () => {
   it("should validate correct login inputs and reject short passwords or invalid emails", () => {
@@ -94,5 +94,49 @@ describe("Zod Validation Schemas Tests", () => {
 
     expect(validPassword.length >= 6).toBe(true);
     expect(shortPassword.length >= 6).toBe(false);
+  });
+
+  it("should evaluate event registration window rules correctly", () => {
+    // 1. Immediate rule
+    const immediateEvent = {
+      status: "ACTIVE",
+      registrationOpenRule: "IMMEDIATE",
+    };
+    expect(getEventRegistrationStatus(immediateEvent).isOpen).toBe(true);
+
+    // 2. 1 hour before rule (future event)
+    const futureDate = new Date(Date.now() + 24 * 60 * 60 * 1000); // tomorrow
+    const scheduledEvent = {
+      status: "ACTIVE",
+      date: futureDate,
+      time: "19:00",
+      registrationOpenRule: "1_HOUR_BEFORE",
+    };
+    const status1h = getEventRegistrationStatus(scheduledEvent);
+    expect(status1h.isOpen).toBe(false);
+    expect(status1h.reason).toContain("1 hora antes do início do evento");
+
+    // 3. Custom date rule (past date -> open, future date -> closed)
+    const pastDate = new Date(Date.now() - 60 * 1000);
+    const customPastEvent = {
+      status: "ACTIVE",
+      registrationOpenRule: "CUSTOM",
+      registrationCustomOpensAt: pastDate,
+    };
+    expect(getEventRegistrationStatus(customPastEvent).isOpen).toBe(true);
+
+    const customFutureEvent = {
+      status: "ACTIVE",
+      registrationOpenRule: "CUSTOM",
+      registrationCustomOpensAt: futureDate,
+    };
+    expect(getEventRegistrationStatus(customFutureEvent).isOpen).toBe(false);
+
+    // 4. Closed / finished event
+    const finishedEvent = {
+      status: "COMPLETED",
+      registrationOpenRule: "IMMEDIATE",
+    };
+    expect(getEventRegistrationStatus(finishedEvent).isOpen).toBe(false);
   });
 });

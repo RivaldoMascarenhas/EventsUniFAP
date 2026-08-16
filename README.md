@@ -27,6 +27,18 @@ Plataforma corporativa e institucional desenvolvida sob medida para o gerenciame
 6. **Capacidade Máxima & Distribuição Aleatória de Bilhetes (QR Code)**:
    - Configuração de `Capacidade Máx. de Participantes` (`maxParticipants`) nos formulários de criação e edição de eventos.
    - Bilhetes não-sequenciais: quem se cadastra pelo formulário público do QR Code recebe um Número da Sorte sorteado aleatoriamente (CSPRNG) entre os números ainda livres no intervalo do evento.
+7. **Regras de Agendamento & Abertura Automática das Inscrições**:
+   - Controle programado de abertura nos formulários de eventos:
+     - `Abertas Imediatamente` (desde o agendamento/criação)
+     - `1 Hora Antes do Início do Evento` (abre 60 minutos antes automaticamente)
+     - `2 Horas Antes do Início do Evento`
+     - `No Horário de Início do Evento`
+     - `Data e Horário Personalizado`
+   - Tela pública com **temporizador de contagem regressiva em tempo real** e desbloqueio automático quando o horário chegar.
+8. **Mural de Divulgação dos Sorteados (WhatsApp, Card PNG, Excel & PDF)**:
+   - **Texto Formatado para WhatsApp**: 1 clique para copiar a lista oficial dos contemplados com emojis, destaques em negrito e organizados por bilhete, prêmio e patrocinador.
+   - **Card Visual em Alta Resolução (PNG)**: Geração instantânea em Canvas de um banner com o design oficial da UniFAP para postar no feed/stories/grupos.
+   - **Exportações Institucionais**: Planilhas completas `.xlsx` (Excel) e Ata Oficial de Resultados em PDF/HTML.
 
 ---
 

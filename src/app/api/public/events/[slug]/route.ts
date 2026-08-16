@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getEventRegistrationStatus } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -28,6 +29,8 @@ export async function GET(
         status: true,
         allowRepeatWinners: true,
         maxParticipants: true,
+        registrationOpenRule: true,
+        registrationCustomOpensAt: true,
         prizes: {
           select: {
             id: true,
@@ -60,11 +63,19 @@ export async function GET(
       return NextResponse.json({ error: "Evento não encontrado" }, { status: 404 });
     }
 
-    return NextResponse.json(event, {
-      headers: {
-        "Cache-Control": "no-store, max-age=0",
+    const registrationStatus = getEventRegistrationStatus(event);
+
+    return NextResponse.json(
+      {
+        ...event,
+        registrationStatus,
       },
-    });
+      {
+        headers: {
+          "Cache-Control": "no-store, max-age=0",
+        },
+      }
+    );
   } catch (error: any) {
     console.error("[GET /api/public/events/[slug]]", error);
     return NextResponse.json({ error: "Erro ao buscar evento" }, { status: 500 });

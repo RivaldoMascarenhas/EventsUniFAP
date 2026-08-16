@@ -17,8 +17,10 @@ import {
   Trophy,
   Calendar,
   Sparkles,
+  Share2,
 } from "lucide-react";
 import { getSupabaseBrowserClient } from "@/lib/supabaseClient";
+import { WinnerShareModal } from "@/components/events/WinnerShareModal";
 
 export default function ResultsHistoryPage() {
   const [draws, setDraws] = useState<any[]>([]);
@@ -26,6 +28,7 @@ export default function ResultsHistoryPage() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedEventId, setSelectedEventId] = useState<string>("ALL");
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
 
   const fetchResults = async (silent = false) => {
     try {
@@ -139,6 +142,16 @@ export default function ResultsHistoryPage() {
               <RefreshCw className={`w-3.5 h-3.5 text-slate-500 ${isRefreshing ? "animate-spin text-unifap-navy" : ""}`} />
               <span>{isRefreshing ? "Atualizando..." : "Atualizar"}</span>
             </button>
+
+            {/* Share Button */}
+            <Button
+              variant="gold"
+              size="sm"
+              onClick={() => setIsShareModalOpen(true)}
+              leftIcon={<Share2 className="w-4 h-4 text-slate-950" />}
+            >
+              Divulgar no WhatsApp / Card
+            </Button>
 
             {/* Export buttons */}
             <a href={getExportUrl("xlsx")} download>
@@ -287,6 +300,19 @@ export default function ResultsHistoryPage() {
           </div>
         )}
       </Card>
+
+      {/* Share Results Modal */}
+      <WinnerShareModal
+        isOpen={isShareModalOpen}
+        onClose={() => setIsShareModalOpen(false)}
+        eventName={
+          selectedEventId !== "ALL"
+            ? distinctEvents.find((e) => e.id === selectedEventId)?.name || "UniFAP Sorteios"
+            : "Todos os Eventos UniFAP"
+        }
+        eventId={selectedEventId !== "ALL" ? selectedEventId : undefined}
+        winners={filteredDraws}
+      />
     </div>
   );
 }

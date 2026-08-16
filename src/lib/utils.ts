@@ -101,3 +101,85 @@ export function slugify(text: string): string {
     .replace(/^-+/, "")
     .replace(/-+$/, "");
 }
+
+export interface EventRegistrationStatus {
+  isOpen: boolean;
+  reason?: string;
+  opensAt?: Date | null;
+  rule: string;
+}
+
+export function getEventRegistrationStatus(event: {
+  status?: string | null;
+  date?: Date | string | null;
+  time?: string | null;
+  registrationOpenRule?: string | null;
+  registrationCustomOpensAt?: Date | string | null;
+}): EventRegistrationStatus {
+  if (event.status === "COMPLETED" || event.status === "CANCELLED") {
+    return {
+      isOpen: false,
+      reason: "As inscrições para este evento foram encerradas.",
+      rule: event.registrationOpenRule || "IMMEDIATE",
+    };
+  }
+
+  const rule = event.registrationOpenRule || "IMMEDIATE";
+  const now = new Date();
+
+  if (rule === "IMMEDIATE") {
+    return { isOpen: true, rule };
+  }
+
+  if (rule === "CUSTOM" && event.registrationCustomOpensAt) {
+    const opensAt = new Date(event.registrationCustomOpensAt);
+    if (now < opensAt) {
+      return {
+        isOpen: false,
+        reason: `As inscrições abrirão em ${formatDateTime(opensAt)}.`,
+        opensAt,
+        rule,
+      };
+    }
+    return { isOpen: true, opensAt, rule };
+  }
+
+  if (event.date) {
+    const eventDateTime = new Date(event.date);
+    if (event.time) {
+      const parts = event.time.split(":");
+      const hours = parseInt(parts[0], 10);
+      const minutes = parseInt(parts[1] || "0", 10);
+      if (!isNaN(hours) && !isNaN(minutes)) {
+        eventDateTime.setHours(hours, minutes, 0, 0);
+      }
+    }
+
+    let opensAt = new Date(eventDateTime);
+    if (rule === "1_HOUR_BEFORE") {
+      opensAt = new Date(eventDateTime.getTime() - 60 * 60 * 1000);
+    } else if (rule === "2_HOURS_BEFORE") {
+      opensAt = new Date(eventDateTime.getTime() - 2 * 60 * 60 * 1000);
+    } else if (rule === "ON_EVENT_START") {
+      opensAt = eventDateTime;
+    }
+
+    if (now < opensAt) {
+      let label = "no início do evento";
+      if (rule === "1_HOUR_BEFORE") label = "1 hora antes do início do evento";
+      if (rule === "2_HOURS_BEFORE") label = "2 horas antes do início do evento";
+
+      return {
+        isOpen: false,
+        reason: `As inscrições abrirão automaticamente ${label} (${formatDateTime(opensAt)}).`,
+        opensAt,
+        rule,
+      };
+    }
+
+    return { isOpen: true, opensAt, rule };
+  }
+
+  return { isOpen: true, rule };
+}
+

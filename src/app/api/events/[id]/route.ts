@@ -80,6 +80,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         ...(validated.secondaryColor ? { secondaryColor: validated.secondaryColor } : {}),
         ...(typeof validated.allowRepeatWinners === "boolean" ? { allowRepeatWinners: validated.allowRepeatWinners } : {}),
         ...(validated.maxParticipants !== undefined ? { maxParticipants: validated.maxParticipants } : {}),
+        ...(validated.registrationOpenRule ? { registrationOpenRule: validated.registrationOpenRule } : {}),
+        ...(validated.registrationCustomOpensAt !== undefined
+          ? { registrationCustomOpensAt: validated.registrationCustomOpensAt ? new Date(validated.registrationCustomOpensAt) : null }
+          : {}),
       },
     });
 

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { ParticipantService } from "@/lib/services/participantService";
 import { publicRegistrationSchema } from "@/lib/validations";
-import { isValidCPF } from "@/lib/utils";
+import { isValidCPF, getEventRegistrationStatus } from "@/lib/utils";
 import { rateLimiter } from "@/lib/security/rateLimiter";
 import { realtimeService } from "@/lib/services/realtimeService";
 
@@ -40,12 +40,28 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     const event = await prisma.event.findUnique({
       where: { id: eventId },
-      select: { id: true, name: true, status: true },
+      select: {
+        id: true,
+        name: true,
+        status: true,
+        date: true,
+        time: true,
+        registrationOpenRule: true,
+        registrationCustomOpensAt: true,
+      },
     });
 
-    if (!event || (event.status !== "ACTIVE" && event.status !== "SCHEDULED")) {
+    if (!event) {
       return NextResponse.json(
-        { error: "As inscrições para este evento não estão abertas no momento." },
+        { error: "Evento não encontrado." },
+        { status: 404 }
+      );
+    }
+
+    const regStatus = getEventRegistrationStatus(event);
+    if (!regStatus.isOpen) {
+      return NextResponse.json(
+        { error: regStatus.reason || "As inscrições para este evento ainda não estão abertas." },
         { status: 400 }
       );
     }

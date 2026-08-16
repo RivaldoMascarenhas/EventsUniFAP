@@ -23,6 +23,8 @@ export const eventSchema = z.object({
   secondaryColor: z.string().default("#EAA023"),
   allowRepeatWinners: z.boolean().default(false),
   maxParticipants: z.number().int().positive().optional().nullable(),
+  registrationOpenRule: z.enum(["IMMEDIATE", "1_HOUR_BEFORE", "2_HOURS_BEFORE", "ON_EVENT_START", "CUSTOM"]).default("IMMEDIATE"),
+  registrationCustomOpensAt: z.string().optional().nullable(),
 });
 
 export type EventInput = z.infer<typeof eventSchema>;

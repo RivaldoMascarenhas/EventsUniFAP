@@ -28,10 +28,12 @@ import {
   Sliders,
   Hash,
   ImageIcon,
+  Share2,
 } from "lucide-react";
 import { padNumber, formatDateTime } from "@/lib/utils";
 import { motion } from "framer-motion";
 import { getSupabaseBrowserClient } from "@/lib/supabaseClient";
+import { WinnerShareModal } from "@/components/events/WinnerShareModal";
 
 export default function OperatorDrawPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: eventId } = use(params);
@@ -48,6 +50,7 @@ export default function OperatorDrawPage({ params }: { params: Promise<{ id: str
   const [isLoading, setIsLoading] = useState(true);
   const [isDrawing, setIsDrawing] = useState(false);
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
 
   // Animated rolling state for UI suspense
   const [rollingNumber, setRollingNumber] = useState<string>("000");
@@ -353,6 +356,15 @@ export default function OperatorDrawPage({ params }: { params: Promise<{ id: str
               Tela Inicial
             </Button>
 
+            <Button
+              variant="gold"
+              size="md"
+              onClick={() => setIsShareModalOpen(true)}
+              leftIcon={<Share2 className="w-4 h-4 text-slate-950" />}
+            >
+              Divulgar Ganhadores
+            </Button>
+
             <Link href={presentationTokenUrl || `/presentation/${event.id}`} target="_blank">
               <Button variant="primary" size="md" leftIcon={<Tv className="w-4 h-4" />}>
                 Abrir Telão 4K
@@ -655,6 +667,19 @@ export default function OperatorDrawPage({ params }: { params: Promise<{ id: str
           </div>
         </div>
       </Modal>
+
+      {/* Modal: Share Winners */}
+      {event && (
+        <WinnerShareModal
+          isOpen={isShareModalOpen}
+          onClose={() => setIsShareModalOpen(false)}
+          eventName={event.name}
+          eventDate={event.date}
+          eventSlug={event.slug}
+          eventId={event.id}
+          winners={event.draws || []}
+        />
+      )}
     </div>
   );
 }
