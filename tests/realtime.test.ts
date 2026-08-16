@@ -11,8 +11,8 @@ describe("Realtime Synchronization Service Tests", () => {
     });
 
     expect(receivedPayload).not.toBeNull();
-    expect(receivedPayload?.type).toBe("state:sync");
-    expect(receivedPayload?.eventId).toBe(eventId);
+    expect((receivedPayload as unknown as RealtimePayload)?.type).toBe("state:sync");
+    expect((receivedPayload as unknown as RealtimePayload)?.eventId).toBe(eventId);
 
     unsubscribe();
   });

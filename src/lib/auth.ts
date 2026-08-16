@@ -72,6 +72,17 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
   callbacks: {
+    async redirect({ url, baseUrl }) {
+      // Allows relative callback URLs
+      if (url.startsWith("/")) return url;
+      // Allows callback URLs on the same origin
+      try {
+        if (new URL(url).origin === baseUrl) return url;
+      } catch {
+        // fallback
+      }
+      return baseUrl || "/login";
+    },
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id;

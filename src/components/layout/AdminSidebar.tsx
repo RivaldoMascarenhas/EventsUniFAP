@@ -42,6 +42,19 @@ export function AdminSidebar() {
   const { data: session } = useSession();
   const isAdmin = session?.user?.role === "ADMIN";
 
+  const [isLoggingOut, setIsLoggingOut] = React.useState(false);
+
+  const handleLogout = async () => {
+    setIsLoggingOut(true);
+    try {
+      await signOut({ redirect: false });
+    } catch (err) {
+      console.error("Erro ao encerrar sessão:", err);
+    } finally {
+      window.location.href = "/login";
+    }
+  };
+
   return (
     <aside className="w-64 bg-unifap-navy text-white flex flex-col shrink-0 min-h-screen border-r border-unifap-blue/40 select-none shadow-xl z-20">
       {/* Brand Header */}
@@ -105,11 +118,12 @@ export function AdminSidebar() {
         </div>
 
         <button
-          onClick={() => signOut({ callbackUrl: "/login" })}
-          className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-xs font-medium text-rose-300 hover:bg-rose-950/40 hover:text-rose-200 border border-rose-900/40 transition"
+          onClick={handleLogout}
+          disabled={isLoggingOut}
+          className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-xs font-medium text-rose-300 hover:bg-rose-950/40 hover:text-rose-200 border border-rose-900/40 transition disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          <LogOut className="w-3.5 h-3.5" />
-          <span>Encerrar Sessão</span>
+          <LogOut className={cn("w-3.5 h-3.5", isLoggingOut && "animate-spin")} />
+          <span>{isLoggingOut ? "Encerrando..." : "Encerrar Sessão"}</span>
         </button>
       </div>
     </aside>
