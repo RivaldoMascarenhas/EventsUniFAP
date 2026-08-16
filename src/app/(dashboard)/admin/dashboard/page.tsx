@@ -19,7 +19,6 @@ import {
   ArrowUpRight,
   History,
   Tv,
-  RefreshCw,
   Trash2,
   AlertTriangle,
 } from "lucide-react";
@@ -48,7 +47,6 @@ export default function AdminDashboardPage() {
   } | null>(null);
 
   const [isLoading, setIsLoading] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
   const [eventToDelete, setEventToDelete] = useState<any | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -75,7 +73,6 @@ export default function AdminDashboardPage() {
   const fetchDashboardData = async (silent = false) => {
     try {
       if (!silent) setIsLoading(true);
-      else setIsRefreshing(true);
 
       const res = await fetch("/api/dashboard", { cache: "no-store" });
       if (res.ok) {
@@ -85,8 +82,7 @@ export default function AdminDashboardPage() {
     } catch (err) {
       console.error("Erro ao carregar dashboard:", err);
     } finally {
-      setIsLoading(false);
-      setIsRefreshing(false);
+      if (!silent) setIsLoading(false);
     }
   };
 
@@ -138,25 +134,13 @@ export default function AdminDashboardPage() {
         title="Painel Institucional"
         subtitle="Visão geral dos sorteios, eventos e participantes da UniFAP"
         actions={
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => fetchDashboardData(true)}
-              disabled={isRefreshing}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-700 shadow-sm transition"
-              title="Atualizar agora"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 text-slate-500 ${isRefreshing ? "animate-spin text-unifap-navy" : ""}`} />
-              <span>{isRefreshing ? "Atualizando..." : "Atualizar"}</span>
-            </button>
-
-            {isAdmin && (
-              <Link href="/admin/events">
-                <Button variant="primary" leftIcon={<Plus className="w-4 h-4" />}>
-                  Novo Evento
-                </Button>
-              </Link>
-            )}
-          </div>
+          isAdmin ? (
+            <Link href="/admin/events">
+              <Button variant="primary" leftIcon={<Plus className="w-4 h-4" />}>
+                Novo Evento
+              </Button>
+            </Link>
+          ) : undefined
         }
       />
 
