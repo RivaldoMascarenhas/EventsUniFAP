@@ -150,23 +150,43 @@ export class ParticipantService {
   }) {
     const { search, category, isEligible, isWinner, page = 1, limit = 50 } = options || {};
     const skip = (page - 1) * limit;
+    const rawSearch = (search || "").trim();
+    const cleanNumbersOnly = rawSearch.replace(/\D/g, "");
+    const ticketNum = !isNaN(Number(rawSearch)) ? Number(rawSearch) : undefined;
+    const terms = rawSearch.split(/\s+/).filter(Boolean);
 
     const where: Prisma.ParticipantWhereInput = {
       eventId,
       ...(category ? { category } : {}),
       ...(typeof isEligible === "boolean" ? { isEligible } : {}),
       ...(typeof isWinner === "boolean" ? { isWinner } : {}),
-      ...(search
-        ? {
-            OR: [
-              { name: { contains: search } },
-              { registration: { contains: search } },
-              { email: { contains: search } },
-              ...(isNaN(Number(search)) ? [] : [{ ticketNumber: Number(search) }]),
-            ],
-          }
-        : {}),
     };
+
+    if (rawSearch) {
+      const orClauses: Prisma.ParticipantWhereInput[] = [
+        { name: { contains: rawSearch, mode: "insensitive" } },
+        { registration: { contains: rawSearch, mode: "insensitive" } },
+        { email: { contains: rawSearch, mode: "insensitive" } },
+      ];
+
+      if (cleanNumbersOnly.length > 0) {
+        orClauses.push({ cpf: { contains: cleanNumbersOnly } });
+      }
+
+      if (ticketNum !== undefined) {
+        orClauses.push({ ticketNumber: ticketNum });
+      }
+
+      if (terms.length > 1) {
+        orClauses.push({
+          AND: terms.map((t) => ({
+            name: { contains: t, mode: "insensitive" },
+          })),
+        });
+      }
+
+      where.OR = orClauses;
+    }
 
     const [total, items] = await Promise.all([
       prisma.participant.count({ where }),

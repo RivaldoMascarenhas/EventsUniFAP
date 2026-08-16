@@ -38,6 +38,7 @@ import {
   Lock,
   Ban,
   CheckCircle,
+  X,
 } from "lucide-react";
 import { formatDate, formatDateTime, formatCurrency, padNumber, maskCPF } from "@/lib/utils";
 import { ImageUpload } from "@/components/ui/ImageUpload";
@@ -754,53 +755,68 @@ export default function SingleEventPage({ params }: { params: Promise<{ id: stri
       {/* Tab: Participants */}
       {activeTab === "participants" && (
         <div className="space-y-4">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="w-full sm:w-80">
+          <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+            <div className="relative w-full lg:w-80">
               <Input
                 placeholder="Buscar por nome, matrícula, CPF..."
-                leftIcon={<Search className="w-4 h-4" />}
+                leftIcon={<Search className="w-4 h-4 text-slate-400" />}
                 value={partSearch}
                 onChange={(e) => setPartSearch(e.target.value)}
+                className="pr-8"
               />
+              {partSearch && (
+                <button
+                  type="button"
+                  onClick={() => setPartSearch("")}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 rounded-md hover:bg-slate-100 transition"
+                  title="Limpar busca"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
             </div>
-            <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
-              <a
-                href={`/api/events/${event.id}/export?type=participants&format=xlsx`}
-                download
-                title="Exportar lista de participantes em formato Excel"
-              >
-                <Button variant="outline" leftIcon={<FileSpreadsheet className="w-4 h-4 text-emerald-600" />}>
-                  Baixar Excel
-                </Button>
-              </a>
 
-              <a
-                href={`/api/events/${event.id}/export?type=participants&format=html`}
-                target="_blank"
-                title="Imprimir lista oficial de participantes ou salvar em PDF"
-              >
-                <Button variant="outline" leftIcon={<Download className="w-4 h-4 text-unifap-navy" />}>
-                  Imprimir / PDF
-                </Button>
-              </a>
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="flex items-center gap-2">
+                <a
+                  href={`/api/events/${event.id}/export?type=participants&format=xlsx`}
+                  download
+                  title="Exportar lista de participantes em formato Excel"
+                >
+                  <Button variant="outline" size="sm" leftIcon={<FileSpreadsheet className="w-4 h-4 text-emerald-600" />}>
+                    Excel
+                  </Button>
+                </a>
 
-              <Button
-                variant="outline"
-                size="md"
-                leftIcon={<HelpCircle className="w-4 h-4 text-unifap-gold" />}
-                onClick={() => setIsCsvHelpModalOpen(true)}
-                title="Como deve ser o arquivo CSV ou Excel?"
-              >
-                Como deve ser o CSV?
-              </Button>
+                <a
+                  href={`/api/events/${event.id}/export?type=participants&format=html`}
+                  target="_blank"
+                  title="Imprimir lista oficial de participantes ou salvar em PDF"
+                >
+                  <Button variant="outline" size="sm" leftIcon={<Download className="w-4 h-4 text-unifap-navy" />}>
+                    PDF
+                  </Button>
+                </a>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  leftIcon={<HelpCircle className="w-4 h-4 text-unifap-gold" />}
+                  onClick={() => setIsCsvHelpModalOpen(true)}
+                  title="Como deve ser o arquivo CSV ou Excel?"
+                >
+                  Ajuda CSV
+                </Button>
+              </div>
 
               {!isPresenter && (
-                <>
+                <div className="flex items-center gap-2 ml-auto">
                   {isAdmin && participantsTotal > 0 && (
                     <Button
                       variant="outline"
+                      size="sm"
                       className="border-rose-200 text-rose-600 hover:bg-rose-50 hover:border-rose-300"
-                      leftIcon={<Trash2 className="w-4 h-4 text-rose-500" />}
+                      leftIcon={<Trash2 className="w-3.5 h-3.5 text-rose-500" />}
                       onClick={() => setIsClearParticipantsModalOpen(true)}
                       title="Remover todos os inscritos não-ganhadores deste evento"
                     >
@@ -809,19 +825,21 @@ export default function SingleEventPage({ params }: { params: Promise<{ id: stri
                   )}
                   <Button
                     variant="outline"
+                    size="sm"
                     leftIcon={<Upload className="w-4 h-4" />}
                     onClick={() => setIsImportModalOpen(true)}
                   >
-                    Importar CSV / Excel
+                    Importar CSV
                   </Button>
                   <Button
                     variant="primary"
+                    size="sm"
                     leftIcon={<Plus className="w-4 h-4" />}
                     onClick={() => setIsAddParticipantModalOpen(true)}
                   >
-                    Adicionar Manual
+                    + Adicionar Manual
                   </Button>
-                </>
+                </div>
               )}
             </div>
           </div>
