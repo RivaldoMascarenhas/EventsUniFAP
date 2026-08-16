@@ -125,6 +125,22 @@ export default function SingleEventPage({ params }: { params: Promise<{ id: stri
     order: 1,
   });
 
+  // Edit & Delete Prize State
+  const [editingPrize, setEditingPrize] = useState<any | null>(null);
+  const [isEditPrizeModalOpen, setIsEditPrizeModalOpen] = useState(false);
+  const [isSavingPrize, setIsSavingPrize] = useState(false);
+  const [prizeToDelete, setPrizeToDelete] = useState<any | null>(null);
+  const [isDeletingPrize, setIsDeletingPrize] = useState(false);
+  const [editPrizeForm, setEditPrizeForm] = useState({
+    name: "",
+    description: "",
+    sponsorId: "",
+    quantity: 1,
+    estimatedValue: 0,
+    order: 1,
+    status: "PENDING",
+  });
+
   // Results State
   const [results, setResults] = useState<any[]>([]);
 
@@ -358,6 +374,72 @@ export default function SingleEventPage({ params }: { params: Promise<{ id: stri
       fetchEventData();
     } catch (err: any) {
       error("Erro", err.message);
+    }
+  };
+
+  const handleOpenEditPrize = (prize: any) => {
+    setEditingPrize(prize);
+    setEditPrizeForm({
+      name: prize.name || "",
+      description: prize.description || "",
+      sponsorId: prize.sponsorId || "",
+      quantity: prize.quantity || 1,
+      estimatedValue: prize.estimatedValue || 0,
+      order: prize.order || 1,
+      status: prize.status || "PENDING",
+    });
+    setIsEditPrizeModalOpen(true);
+  };
+
+  const handleSaveEditPrize = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingPrize) return;
+
+    try {
+      setIsSavingPrize(true);
+      const res = await fetch(`/api/prizes/${editingPrize.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...editPrizeForm,
+          sponsorId: editPrizeForm.sponsorId || null,
+          estimatedValue: Number(editPrizeForm.estimatedValue) || null,
+          quantity: Number(editPrizeForm.quantity) || 1,
+          order: Number(editPrizeForm.order) || 1,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Erro ao atualizar prêmio");
+
+      success("Prêmio Atualizado!", `As alterações no prêmio "${data.name}" foram salvas.`);
+      setIsEditPrizeModalOpen(false);
+      setEditingPrize(null);
+      fetchEventData();
+    } catch (err: any) {
+      error("Erro ao salvar prêmio", err.message);
+    } finally {
+      setIsSavingPrize(false);
+    }
+  };
+
+  const handleConfirmDeletePrize = async () => {
+    if (!prizeToDelete) return;
+
+    try {
+      setIsDeletingPrize(true);
+      const res = await fetch(`/api/prizes/${prizeToDelete.id}`, {
+        method: "DELETE",
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Erro ao excluir prêmio");
+
+      success("Prêmio Excluído!", `O prêmio "${prizeToDelete.name}" foi removido.`);
+      setPrizeToDelete(null);
+      fetchEventData();
+    } catch (err: any) {
+      error("Erro ao excluir prêmio", err.message);
+    } finally {
+      setIsDeletingPrize(false);
     }
   };
 
@@ -688,6 +770,28 @@ export default function SingleEventPage({ params }: { params: Promise<{ id: stri
                         </div>
                       </div>
                     )}
+                  </div>
+
+                  {/* Actions */}
+                  <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex-1 text-xs"
+                      onClick={() => handleOpenEditPrize(prize)}
+                      leftIcon={<Edit className="w-3.5 h-3.5" />}
+                    >
+                      Editar
+                    </Button>
+                    <Button
+                      variant="danger"
+                      size="sm"
+                      className="px-3 bg-rose-50 text-rose-600 hover:bg-rose-100 hover:text-rose-700 border border-rose-200"
+                      title="Excluir Prêmio"
+                      onClick={() => setPrizeToDelete(prize)}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
                   </div>
                 </CardContent>
               </Card>
@@ -1113,6 +1217,152 @@ export default function SingleEventPage({ params }: { params: Promise<{ id: stri
             </Button>
           </div>
         </form>
+      </Modal>
+
+      {/* Modal: Edit Prize */}
+      <Modal
+        isOpen={isEditPrizeModalOpen}
+        onClose={() => {
+          setIsEditPrizeModalOpen(false);
+          setEditingPrize(null);
+        }}
+        title="Editar Dados do Prêmio"
+        description="Atualize as informações, patrocinador ou ordem do prêmio."
+      >
+        <form onSubmit={handleSaveEditPrize} className="space-y-4">
+          <div>
+            <Label required>Nome do Prêmio</Label>
+            <Input
+              value={editPrizeForm.name}
+              onChange={(e) => setEditPrizeForm({ ...editPrizeForm, name: e.target.value })}
+              required
+            />
+          </div>
+
+          <div>
+            <Label>Patrocinador Responsável</Label>
+            <select
+              className="flex h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-unifap-navy"
+              value={editPrizeForm.sponsorId}
+              onChange={(e) => setEditPrizeForm({ ...editPrizeForm, sponsorId: e.target.value })}
+            >
+              <option value="">UniFAP (Próprio da Instituição)</option>
+              {sponsors.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+            <div>
+              <Label>Ordem do Sorteio</Label>
+              <Input
+                type="number"
+                min="1"
+                value={editPrizeForm.order}
+                onChange={(e) => setEditPrizeForm({ ...editPrizeForm, order: parseInt(e.target.value, 10) || 1 })}
+              />
+            </div>
+            <div>
+              <Label>Quantidade</Label>
+              <Input
+                type="number"
+                min="1"
+                value={editPrizeForm.quantity}
+                onChange={(e) => setEditPrizeForm({ ...editPrizeForm, quantity: parseInt(e.target.value, 10) || 1 })}
+              />
+            </div>
+            <div>
+              <Label>Status</Label>
+              <select
+                className="flex h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-unifap-navy"
+                value={editPrizeForm.status}
+                onChange={(e) => setEditPrizeForm({ ...editPrizeForm, status: e.target.value })}
+              >
+                <option value="PENDING">Pendente</option>
+                <option value="DRAWING">Sorteando</option>
+                <option value="DRAWN">Sorteado</option>
+                <option value="DELIVERED">Entregue</option>
+                <option value="CANCELED">Cancelado</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <Label>Valor Estimado (R$)</Label>
+            <Input
+              type="number"
+              step="0.01"
+              placeholder="1500.00"
+              value={editPrizeForm.estimatedValue || ""}
+              onChange={(e) => setEditPrizeForm({ ...editPrizeForm, estimatedValue: parseFloat(e.target.value) || 0 })}
+            />
+          </div>
+
+          <div>
+            <Label>Descrição / Especificações</Label>
+            <Textarea
+              value={editPrizeForm.description}
+              onChange={(e) => setEditPrizeForm({ ...editPrizeForm, description: e.target.value })}
+            />
+          </div>
+
+          <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setIsEditPrizeModalOpen(false);
+                setEditingPrize(null);
+              }}
+            >
+              Cancelar
+            </Button>
+            <Button type="submit" variant="primary" isLoading={isSavingPrize}>
+              Salvar Alterações
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Modal: Delete Prize Confirmation */}
+      <Modal
+        isOpen={!!prizeToDelete}
+        onClose={() => setPrizeToDelete(null)}
+        title="Excluir Prêmio Definitivamente?"
+        description="Esta ação removerá o prêmio da lista do evento."
+        maxWidth="md"
+      >
+        <div className="space-y-4">
+          <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
+            <div className="text-xs text-rose-900 leading-relaxed">
+              Você está prestes a excluir o prêmio <strong className="font-bold">{prizeToDelete?.name}</strong>.
+              Caso este prêmio já tenha sido sorteado, o registro do sorteio associado também será limpo.
+            </div>
+          </div>
+
+          <div className="flex items-center justify-end gap-3 pt-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setPrizeToDelete(null)}
+              disabled={isDeletingPrize}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              variant="danger"
+              isLoading={isDeletingPrize}
+              onClick={handleConfirmDeletePrize}
+            >
+              Sim, Excluir Prêmio
+            </Button>
+          </div>
+        </div>
       </Modal>
 
       {/* Modal: Edit Event Details */}

@@ -49,12 +49,16 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session || session.user.role !== "ADMIN") {
-      return NextResponse.json({ error: "Acesso restrito a administradores" }, { status: 403 });
+    if (!session || (session.user.role !== "ADMIN" && session.user.role !== "OPERATOR")) {
+      return NextResponse.json({ error: "Acesso restrito" }, { status: 403 });
     }
 
     const { id } = await params;
-    await prisma.prize.delete({ where: { id } });
+    await prisma.$transaction([
+      prisma.winner.deleteMany({ where: { prizeId: id } }),
+      prisma.draw.deleteMany({ where: { prizeId: id } }),
+      prisma.prize.delete({ where: { id } }),
+    ]);
 
     await AuditService.log({
       userId: session.user.id,
