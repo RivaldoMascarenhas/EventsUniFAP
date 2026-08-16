@@ -14,9 +14,16 @@ export const metadata: Metadata = {
   title: "UniFAP Sorteios — Sistema Institucional de Sorteios",
   description: "Plataforma oficial e institucional para gerenciamento e execução de sorteios em eventos do Centro Universitário Paraíso — UniFAP.",
   icons: {
-    icon: "/branding/unifap-logo-square.svg",
-    shortcut: "/branding/unifap-logo-square.svg",
-    apple: "/branding/unifap-logo-square.svg",
+    icon: [
+      { url: "/favicon.svg", type: "image/svg+xml" },
+      { url: "/favicon.png", type: "image/png" },
+      { url: "/branding/unifap-logo-square.svg", type: "image/svg+xml" },
+      { url: "/branding/unifap-logo-square.png", type: "image/png" },
+    ],
+    shortcut: ["/favicon.png", "/branding/unifap-logo-square.png"],
+    apple: [
+      { url: "/branding/unifap-logo-square.png", sizes: "180x180", type: "image/png" },
+    ],
   },
   authors: [{ name: "Centro Universitário Paraíso - UniFAP" }],
   keywords: ["UniFAP", "Sorteios", "Eventos", "Centro Universitário Paraíso", "Juazeiro do Norte", "Auditório"],
