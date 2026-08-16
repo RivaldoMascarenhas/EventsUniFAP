@@ -80,9 +80,11 @@ function PresentationContent({ eventId }: { eventId: string }) {
 
   const lastAnimatedDrawIdRef = useRef<string | null>(null);
   const isAnimatingRef = useRef(false);
+  const rafIdRef = useRef<number | null>(null);
 
-  // Execute Suspense Rolling animation when draw completes
+  // Execute Ultra Fluid Suspense Rolling animation with Physics Deceleration Curve
   const startDrawRollAnimation = (winnerData: any) => {
+    if (rafIdRef.current) cancelAnimationFrame(rafIdRef.current);
     if (animationTimerRef.current) clearInterval(animationTimerRef.current);
     isAnimatingRef.current = true;
 
@@ -95,24 +97,37 @@ function PresentationContent({ eventId }: { eventId: string }) {
     const maxBound = winnerData?.maxNumber ? Number(winnerData.maxNumber) : Math.max(targetNum, 100);
     const digits = maxBound > 99 ? 3 : 2;
 
-    let count = 0;
-    const totalSteps = 24; // ~1.8 seconds of clean suspense
+    const startTime = performance.now();
+    const duration = 2000; // 2.0s smooth suspense
+    let lastTickTime = 0;
 
-    const stepInterval = setInterval(() => {
-      count++;
-      const randomNum = Math.floor(Math.random() * (maxBound - minBound + 1)) + minBound;
-      setRollingNumber(padNumber(randomNum, digits));
+    const animate = (currentTime: number) => {
+      const elapsed = currentTime - startTime;
+      const progress = Math.min(1, elapsed / duration);
 
-      if (count % 3 === 0) {
-        soundEngine.play("DRAW_TICK");
+      // Smooth cubic deceleration (fast spin -> gentle slowdown -> click into place)
+      const easeProgress = 1 - Math.pow(1 - progress, 3);
+      const currentTickInterval = 30 + easeProgress * 210;
+
+      if (currentTime - lastTickTime >= currentTickInterval) {
+        lastTickTime = currentTime;
+
+        if (progress < 0.96) {
+          const randomNum = Math.floor(Math.random() * (maxBound - minBound + 1)) + minBound;
+          setRollingNumber(padNumber(randomNum, digits));
+
+          if (easeProgress > 0.65) {
+            soundEngine.play("DRAW_SLOWDOWN");
+          } else {
+            soundEngine.play("DRAW_TICK");
+          }
+        }
       }
 
-      if (count === 16) {
-        soundEngine.play("DRAW_SLOWDOWN");
-      }
-
-      if (count >= totalSteps) {
-        clearInterval(stepInterval);
+      if (progress < 1) {
+        rafIdRef.current = requestAnimationFrame(animate);
+      } else {
+        // Climax Reveal
         isAnimatingRef.current = false;
         setRollingNumber(padNumber(targetNum, digits));
         setCurrentWinner(winnerData);
@@ -122,13 +137,13 @@ function PresentationContent({ eventId }: { eventId: string }) {
         setTimeout(() => {
           soundEngine.play("WINNER");
           fireInstitutionalConfetti();
-        }, 200);
+        }, 120);
 
         fetchEvent();
       }
-    }, 75);
+    };
 
-    animationTimerRef.current = stepInterval;
+    rafIdRef.current = requestAnimationFrame(animate);
   };
 
   // Central State Dispatcher for all realtime transports (Supabase Broadcast, SSE, Polling)
@@ -144,19 +159,23 @@ function PresentationContent({ eventId }: { eventId: string }) {
         if (payload.winner) setCurrentWinner(payload.winner);
       }
     } else if (payload.type === "qr:show") {
+      if (rafIdRef.current) cancelAnimationFrame(rafIdRef.current);
       if (animationTimerRef.current) clearInterval(animationTimerRef.current);
       isAnimatingRef.current = false;
       setState("SHOWING_QR_CODE");
     } else if (payload.type === "logo:show") {
+      if (rafIdRef.current) cancelAnimationFrame(rafIdRef.current);
       if (animationTimerRef.current) clearInterval(animationTimerRef.current);
       isAnimatingRef.current = false;
       setState("SHOWING_EVENT_LOGO");
     } else if (payload.type === "idle:show") {
+      if (rafIdRef.current) cancelAnimationFrame(rafIdRef.current);
       if (animationTimerRef.current) clearInterval(animationTimerRef.current);
       isAnimatingRef.current = false;
       setState("IDLE");
       setCurrentWinner(null);
     } else if (payload.type === "prize:show") {
+      if (rafIdRef.current) cancelAnimationFrame(rafIdRef.current);
       if (animationTimerRef.current) clearInterval(animationTimerRef.current);
       isAnimatingRef.current = false;
       setState("SHOWING_PRIZE");
@@ -183,6 +202,7 @@ function PresentationContent({ eventId }: { eventId: string }) {
         }
       }
     } else if (payload.type === "draw:cancel") {
+      if (rafIdRef.current) cancelAnimationFrame(rafIdRef.current);
       if (animationTimerRef.current) clearInterval(animationTimerRef.current);
       isAnimatingRef.current = false;
       setState("IDLE");
@@ -216,11 +236,14 @@ function PresentationContent({ eventId }: { eventId: string }) {
   useEffect(() => {
     let isMounted = true;
     const syncState = async () => {
+      // Never interrupt live 60fps rolling animation with network fetch
+      if (isAnimatingRef.current) return;
+
       try {
         const res = await fetch(`/api/events/${eventId}/realtime?poll=true${token ? `&token=${token}` : ""}`, {
           cache: "no-store",
         });
-        if (res.ok && isMounted) {
+        if (res.ok && isMounted && !isAnimatingRef.current) {
           const payload = await res.json();
           setIsConnected(true);
           if (payload && payload.state) {
@@ -233,10 +256,11 @@ function PresentationContent({ eventId }: { eventId: string }) {
     };
 
     syncState();
-    const interval = setInterval(syncState, 2000);
+    const interval = setInterval(syncState, 2500);
     return () => {
       isMounted = false;
       clearInterval(interval);
+      if (rafIdRef.current) cancelAnimationFrame(rafIdRef.current);
     };
   }, [eventId, token]);
 

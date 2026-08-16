@@ -241,35 +241,43 @@ export default function OperatorDrawPage({ params }: { params: Promise<{ id: str
       return;
     }
 
-    // 5. Progressive Suspense Animation
-    let speed = 40;
-    let iterations = 0;
-    const maxIterations = 35;
-
+    // 5. Ultra Fluid Progressive Suspense Animation (60FPS Physics Deceleration)
     const digits = drawType === "RANGE" && maxRange <= 99 ? 2 : 3;
+    const startTime = performance.now();
+    const duration = 2000;
+    let lastTickTime = 0;
 
-    const interval = setInterval(() => {
-      iterations++;
-      const randomFakeNum =
-        drawType === "RANGE"
-          ? Math.floor(Math.random() * (maxRange - minRange + 1)) + minRange
-          : Math.floor(Math.random() * 900) + 100;
+    const animate = (currentTime: number) => {
+      const elapsed = currentTime - startTime;
+      const progress = Math.min(1, elapsed / duration);
 
-      setRollingNumber(padNumber(randomFakeNum, digits));
-      setRollingName(drawResult?.winner?.name || "Sorteando...");
+      // Cubic deceleration curve
+      const easeProgress = 1 - Math.pow(1 - progress, 3);
+      const currentTickInterval = 30 + easeProgress * 210;
 
-      if (iterations % 4 === 0) {
-        soundEngine.play("DRAW_TICK");
+      if (currentTime - lastTickTime >= currentTickInterval) {
+        lastTickTime = currentTime;
+
+        if (progress < 0.96) {
+          const randomFakeNum =
+            drawType === "RANGE"
+              ? Math.floor(Math.random() * (maxRange - minRange + 1)) + minRange
+              : Math.floor(Math.random() * 900) + 100;
+
+          setRollingNumber(padNumber(randomFakeNum, digits));
+          setRollingName(drawResult?.winner?.name || "Sorteando...");
+
+          if (easeProgress > 0.65) {
+            soundEngine.play("DRAW_SLOWDOWN");
+          } else {
+            soundEngine.play("DRAW_TICK");
+          }
+        }
       }
 
-      if (iterations > 20) {
-        speed += 30;
-        soundEngine.play("DRAW_SLOWDOWN");
-      }
-
-      if (iterations >= maxIterations) {
-        clearInterval(interval);
-
+      if (progress < 1) {
+        requestAnimationFrame(animate);
+      } else {
         // 6. Reveal Final Winner
         setRollingNumber(padNumber(drawResult.drawnNumber, digits));
         setRollingName(drawResult.drawnName);
@@ -282,11 +290,13 @@ export default function OperatorDrawPage({ params }: { params: Promise<{ id: str
           soundEngine.play("WINNER");
           fireInstitutionalConfetti();
           success("Sorteio Concluído!", `Número Sorteado: #${drawResult.drawnNumber}`);
-        }, 200);
+        }, 120);
 
         fetchEventData();
       }
-    }, speed);
+    };
+
+    requestAnimationFrame(animate);
   };
 
   if (isLoading) return <LoadingState message="Carregando painel de sorteio..." />;
