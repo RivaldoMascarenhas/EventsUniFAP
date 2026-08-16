@@ -69,6 +69,47 @@ class RealtimeService {
 
   public async publish(eventId: string, event: Partial<RealtimePayload>) {
     const channel = this.getChannel(eventId);
+    const eventTimestamp = event.timestamp || Date.now();
+
+    // 1. Participant count updates must NOT touch or overwrite stage state (QR Code, Logo, Prize, Draw)
+    if (event.type === "participant:registered") {
+      const payload: RealtimePayload = {
+        type: "participant:registered",
+        eventId,
+        participantCount: event.participantCount,
+        timestamp: eventTimestamp,
+      };
+
+      // Dispatch to local Node SSE subscribers
+      channel.subscribers.forEach((cb) => {
+        try {
+          cb(payload);
+        } catch (err) {
+          console.error("[RealtimeService] Error dispatching to subscriber:", err);
+        }
+      });
+
+      // Broadcast to Supabase Realtime WebSocket for instant participant count update
+      this.broadcastToSupabase(eventId, payload);
+      return;
+    }
+
+    // 2. Ensure in-memory channel is hydrated from DB if cold/uninitialized
+    if (channel.state === "IDLE" && !event.state) {
+      try {
+        const persisted = await prisma.idempotencyRecord.findUnique({
+          where: { key: `presentation_state:${eventId}` },
+        });
+        if (persisted && persisted.result) {
+          const parsed = JSON.parse(persisted.result);
+          if (parsed.state) channel.state = parsed.state;
+          if (parsed.prizeId) channel.currentPrizeId = parsed.prizeId;
+          if (parsed.prize) channel.currentPrize = parsed.prize;
+          if (parsed.winner) channel.currentWinner = parsed.winner;
+        }
+      } catch {}
+    }
+
     if (event.state && event.type !== "audio:config") {
       channel.state = event.state;
     }
@@ -80,8 +121,6 @@ class RealtimeService {
     if (event.winner !== undefined) channel.currentWinner = event.winner;
     if (event.soundEnabled !== undefined) channel.soundEnabled = event.soundEnabled;
     if (event.volume !== undefined) channel.volume = event.volume;
-
-    const eventTimestamp = event.timestamp || Date.now();
 
     const payload: RealtimePayload = {
       type: event.type || "state:sync",
@@ -106,7 +145,7 @@ class RealtimeService {
       timestamp: eventTimestamp,
     };
 
-    // 1. Dispatch to local Node SSE subscribers
+    // Dispatch to local Node SSE subscribers
     channel.subscribers.forEach((cb) => {
       try {
         cb(payload);
@@ -115,7 +154,7 @@ class RealtimeService {
       }
     });
 
-    // 2. Persist in Database for multi-server / serverless sync
+    // Persist in Database for multi-server / serverless sync
     try {
       await prisma.idempotencyRecord.upsert({
         where: { key: `presentation_state:${eventId}` },
@@ -132,7 +171,11 @@ class RealtimeService {
       console.warn("[RealtimeService] Could not persist state in DB:", dbErr);
     }
 
-    // 3. Broadcast to Supabase Realtime WebSocket channel for cross-device instant sync
+    // Broadcast to Supabase Realtime WebSocket channel for cross-device instant sync
+    this.broadcastToSupabase(eventId, payload);
+  }
+
+  private broadcastToSupabase(eventId: string, payload: any) {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
@@ -152,19 +195,21 @@ class RealtimeService {
           }
         });
 
-        // Also notify global admin dashboard of live draw state change
-        const adminCh = supabase.channel("admin_dashboard_sync");
-        adminCh.subscribe((status) => {
-          if (status === "SUBSCRIBED") {
-            adminCh.send({
-              type: "broadcast",
-              event: "dashboard_update",
-              payload: { type: "draw", eventId, timestamp: Date.now() },
-            }).finally(() => {
-              supabase.removeChannel(adminCh);
-            });
-          }
-        });
+        // Also notify global admin dashboard if it's a draw state change
+        if (payload.type === "draw:result" || payload.type === "draw:start" || payload.type === "draw:cancel") {
+          const adminCh = supabase.channel("admin_dashboard_sync");
+          adminCh.subscribe((status) => {
+            if (status === "SUBSCRIBED") {
+              adminCh.send({
+                type: "broadcast",
+                event: "dashboard_update",
+                payload: { type: "draw", eventId, timestamp: Date.now() },
+              }).finally(() => {
+                supabase.removeChannel(adminCh);
+              });
+            }
+          });
+        }
       } catch (sbErr) {
         console.warn("[RealtimeService] Supabase broadcast error:", sbErr);
       }

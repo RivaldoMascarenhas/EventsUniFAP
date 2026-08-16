@@ -195,11 +195,13 @@ function PresentationContent({ eventId }: { eventId: string }) {
       if (animationTimerRef.current) clearInterval(animationTimerRef.current);
       isAnimatingRef.current = false;
       setSafeState("SHOWING_QR_CODE");
+      setCurrentWinner(null);
     } else if (payload.type === "logo:show") {
       if (rafIdRef.current) cancelAnimationFrame(rafIdRef.current);
       if (animationTimerRef.current) clearInterval(animationTimerRef.current);
       isAnimatingRef.current = false;
       setSafeState("SHOWING_EVENT_LOGO");
+      setCurrentWinner(null);
     } else if (payload.type === "idle:show") {
       if (rafIdRef.current) cancelAnimationFrame(rafIdRef.current);
       if (animationTimerRef.current) clearInterval(animationTimerRef.current);
@@ -268,6 +270,7 @@ function PresentationContent({ eventId }: { eventId: string }) {
       } else {
         setParticipantCount((prev) => prev + 1);
       }
+      return;
     }
 
     // Auto-sync participant count if present in any broadcast payload
