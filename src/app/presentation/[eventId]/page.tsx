@@ -45,6 +45,7 @@ function PresentationContent({ eventId }: { eventId: string }) {
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [rollingNumber, setRollingNumber] = useState("000");
+  const [audioFeedback, setAudioFeedback] = useState<string | null>(null);
 
   const animationTimerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -211,6 +212,25 @@ function PresentationContent({ eventId }: { eventId: string }) {
       isAnimatingRef.current = false;
       setState("IDLE");
       setCurrentWinner(null);
+    } else if (payload.type === "audio:config") {
+      if (typeof payload.soundEnabled === "boolean") {
+        setSoundEnabled(payload.soundEnabled);
+        soundEngine.setEnabled(payload.soundEnabled);
+        setAudioFeedback(payload.soundEnabled ? "Áudio dos Telões Ativado" : "Áudio dos Telões Silenciado pelo Operador");
+        setTimeout(() => setAudioFeedback(null), 3500);
+      }
+      if (typeof payload.volume === "number") {
+        soundEngine.setVolume(payload.volume);
+      }
+    }
+
+    // Auto-sync audio state if present in any broadcast payload
+    if (typeof payload.soundEnabled === "boolean" && payload.type !== "audio:config") {
+      setSoundEnabled(payload.soundEnabled);
+      soundEngine.setEnabled(payload.soundEnabled);
+    }
+    if (typeof payload.volume === "number" && payload.type !== "audio:config") {
+      soundEngine.setVolume(payload.volume);
     }
   };
 
@@ -355,6 +375,14 @@ function PresentationContent({ eventId }: { eventId: string }) {
         </div>
 
         <div className="flex items-center gap-3">
+          {/* Audio Remote Feedback Pill */}
+          {audioFeedback && (
+            <div className="hidden sm:flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 backdrop-blur-md animate-pulse">
+              {soundEnabled ? <Volume2 className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5" />}
+              <span>{audioFeedback}</span>
+            </div>
+          )}
+
           {/* Live Sync Status indicator */}
           <div
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold backdrop-blur-md border ${
@@ -369,10 +397,14 @@ function PresentationContent({ eventId }: { eventId: string }) {
 
           <button
             onClick={toggleSound}
-            className="p-3 rounded-2xl bg-white/10 hover:bg-white/20 border border-white/15 text-white transition backdrop-blur-md"
-            title={soundEnabled ? "Desativar Sons (M)" : "Ativar Sons (M)"}
+            className={`p-3 rounded-2xl border transition backdrop-blur-md ${
+              soundEnabled
+                ? "bg-white/10 hover:bg-white/20 border-white/15 text-white"
+                : "bg-rose-950/50 border-rose-500/30 text-rose-300"
+            }`}
+            title={soundEnabled ? "Desativar Sons dos Telões (M)" : "Ativar Sons dos Telões (M)"}
           >
-            {soundEnabled ? <Volume2 className="w-5 h-5 text-unifap-gold" /> : <VolumeX className="w-5 h-5 text-slate-400" />}
+            {soundEnabled ? <Volume2 className="w-5 h-5 text-unifap-gold" /> : <VolumeX className="w-5 h-5 text-rose-400" />}
           </button>
           <button
             onClick={toggleFullscreen}

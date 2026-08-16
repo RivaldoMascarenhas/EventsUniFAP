@@ -81,15 +81,17 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const { id: eventId } = await params;
     const body = await req.json();
 
-    const { type, state, prizeId, prize, winner } = body;
+    const { type, state, prizeId, prize, winner, soundEnabled, volume } = body;
 
     await realtimeService.publish(eventId, {
       type,
       eventId,
-      state,
+      state: state || "IDLE",
       prizeId,
       prize,
       winner,
+      soundEnabled,
+      volume,
     });
 
     return NextResponse.json({ success: true, state: realtimeService.getState(eventId) });

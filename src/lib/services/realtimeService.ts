@@ -4,13 +4,15 @@ import { prisma } from "@/lib/prisma";
 export type PresentationStageState = "IDLE" | "SHOWING_QR_CODE" | "SHOWING_EVENT_LOGO" | "SHOWING_PRIZE" | "DRAWING" | "RESULT";
 
 export interface RealtimePayload {
-  type: "state:sync" | "qr:show" | "logo:show" | "idle:show" | "prize:show" | "draw:start" | "draw:result" | "draw:cancel";
+  type: "state:sync" | "qr:show" | "logo:show" | "idle:show" | "prize:show" | "draw:start" | "draw:result" | "draw:cancel" | "audio:config";
   eventId: string;
   state: PresentationStageState;
   prizeId?: string | null;
   prize?: any;
   drawId?: string | null;
   winner?: any;
+  soundEnabled?: boolean;
+  volume?: number;
   timestamp: number;
 }
 
@@ -19,6 +21,8 @@ interface EventChannel {
   currentPrizeId: string | null;
   currentPrize: any | null;
   currentWinner: any | null;
+  soundEnabled: boolean;
+  volume: number;
   subscribers: Set<(payload: RealtimePayload) => void>;
 }
 
@@ -32,6 +36,8 @@ class RealtimeService {
         currentPrizeId: null,
         currentPrize: null,
         currentWinner: null,
+        soundEnabled: true,
+        volume: 0.85,
         subscribers: new Set(),
       });
     }
@@ -50,6 +56,8 @@ class RealtimeService {
       prizeId: channel.currentPrizeId,
       prize: channel.currentPrize,
       winner: channel.currentWinner,
+      soundEnabled: channel.soundEnabled,
+      volume: channel.volume,
       timestamp: Date.now(),
     });
 
@@ -64,6 +72,8 @@ class RealtimeService {
     if (event.prize !== undefined) channel.currentPrize = event.prize;
     if (event.prizeId !== undefined) channel.currentPrizeId = event.prizeId;
     if (event.winner !== undefined) channel.currentWinner = event.winner;
+    if (event.soundEnabled !== undefined) channel.soundEnabled = event.soundEnabled;
+    if (event.volume !== undefined) channel.volume = event.volume;
 
     const payload: RealtimePayload = {
       ...event,

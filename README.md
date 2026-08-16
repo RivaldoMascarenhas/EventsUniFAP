@@ -39,6 +39,11 @@ Plataforma corporativa e institucional desenvolvida sob medida para o gerenciame
    - **Texto Formatado para WhatsApp**: 1 clique para copiar a lista oficial dos contemplados com emojis, destaques em negrito e organizados por bilhete, prêmio e patrocinador.
    - **Card Visual em Alta Resolução (PNG)**: Geração instantânea em Canvas de um banner com o design oficial da UniFAP para postar no feed/stories/grupos.
    - **Exportações Institucionais**: Planilhas completas `.xlsx` (Excel) e Ata Oficial de Resultados em PDF/HTML.
+9. **Controle Remoto de Áudio para Múltiplas TVs & Telões**:
+   - Controle mestre no Console do Operador com sincronização instantânea (WebSocket) para todas as TVs e projetores conectados.
+   - Botão rápido para **Silenciar Todas as TVs (Mudo)** ou **Ativar Som nos Telões**.
+   - Slider de Volume mestre remoto (0% a 100%).
+   - Controle separado para o som local do notebook da operação (ideal para conectar o notebook à mesa de som do auditório sem gerar eco nas TVs).
 
 ---
 

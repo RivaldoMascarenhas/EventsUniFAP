@@ -45,7 +45,12 @@ export default function OperatorDrawPage({ params }: { params: Promise<{ id: str
   const [drawType, setDrawType] = useState<"NUMBER" | "NAME" | "RANGE">("NUMBER");
   const [minRange, setMinRange] = useState<number>(1);
   const [maxRange, setMaxRange] = useState<number>(100);
-  const [soundEnabled, setSoundEnabled] = useState(true);
+  
+  // Audio Controls: Separate local and remote (presentation screens)
+  const [localSoundEnabled, setLocalSoundEnabled] = useState(true);
+  const [telaoSoundEnabled, setTelaoSoundEnabled] = useState(true);
+  const [telaoVolume, setTelaoVolume] = useState<number>(0.85);
+  const [isAudioModalOpen, setIsAudioModalOpen] = useState(false);
 
   const [isLoading, setIsLoading] = useState(true);
   const [isDrawing, setIsDrawing] = useState(false);
@@ -91,9 +96,31 @@ export default function OperatorDrawPage({ params }: { params: Promise<{ id: str
     fetchEventData();
   }, [eventId]);
 
-  const toggleSound = () => {
-    const next = !soundEnabled;
-    setSoundEnabled(next);
+  // Audio Broadcast & Control
+  const broadcastAudioConfig = async (enabled: boolean, vol: number = telaoVolume) => {
+    setTelaoSoundEnabled(enabled);
+    setTelaoVolume(vol);
+
+    await broadcastRealtime({
+      type: "audio:config",
+      soundEnabled: enabled,
+      volume: vol,
+    });
+
+    if (enabled) {
+      success("Áudio Ativado nos Telões", `Volume transmitido em ${Math.round(vol * 100)}% para todas as telas.`);
+    } else {
+      info("Telões Silenciados", "Todas as telas e TVs conectadas foram colocadas no mudo.");
+    }
+  };
+
+  const toggleTelaoAudio = () => {
+    broadcastAudioConfig(!telaoSoundEnabled, telaoVolume);
+  };
+
+  const toggleLocalSound = () => {
+    const next = !localSoundEnabled;
+    setLocalSoundEnabled(next);
     soundEngine.setEnabled(next);
   };
 
@@ -316,17 +343,32 @@ export default function OperatorDrawPage({ params }: { params: Promise<{ id: str
         subtitle={`Operação em tempo real para ${event.name}`}
         actions={
           <div className="flex flex-wrap items-center gap-2.5">
+            {/* Quick Remote Audio Toggle */}
             <button
-              onClick={toggleSound}
+              onClick={toggleTelaoAudio}
               className={`p-2.5 rounded-xl border transition flex items-center gap-2 text-xs font-bold ${
-                soundEnabled
-                  ? "bg-amber-500/10 border-amber-500/30 text-amber-600"
-                  : "bg-slate-100 border-slate-200 text-slate-400"
+                telaoSoundEnabled
+                  ? "bg-amber-500/10 border-amber-500/30 text-amber-600 hover:bg-amber-500/20"
+                  : "bg-rose-50 border-rose-200 text-rose-600 hover:bg-rose-100"
               }`}
-              title={soundEnabled ? "Sons Ativados" : "Sons Desativados"}
+              title={
+                telaoSoundEnabled
+                  ? "Áudio do Telão Ativado — Clique para Silenciar todas as TVs"
+                  : "Telões Silenciados — Clique para Ativar Áudio nas TVs"
+              }
             >
-              {soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
-              <span>{soundEnabled ? "Áudio Ligado" : "Mudo"}</span>
+              {telaoSoundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+              <span>{telaoSoundEnabled ? "Áudio dos Telões (Ligado)" : "Telões Silenciados (Mudo)"}</span>
+            </button>
+
+            {/* Audio Settings Modal Trigger */}
+            <button
+              onClick={() => setIsAudioModalOpen(true)}
+              className="p-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold transition flex items-center gap-1.5 shadow-sm"
+              title="Ajustes Avançados de Áudio (Volume e Múltiplas TVs)"
+            >
+              <Sliders className="w-4 h-4 text-slate-500" />
+              <span className="hidden sm:inline">Ajustes de Áudio</span>
             </button>
 
             <Button
@@ -664,6 +706,136 @@ export default function OperatorDrawPage({ params }: { params: Promise<{ id: str
             <Button variant="gold" onClick={executeConfirmedDraw} leftIcon={<Sparkles className="w-4 h-4" />}>
               Confirmar e Sortear
             </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Audio Multi-Screen Settings Modal */}
+      <Modal
+        isOpen={isAudioModalOpen}
+        onClose={() => setIsAudioModalOpen(false)}
+        title="Controle de Áudio dos Telões & Múltiplas TVs"
+        description="Controle o áudio das TVs e projetores conectados em tempo real para evitar atrasos ou ecos no auditório."
+        maxWidth="lg"
+      >
+        <div className="space-y-5">
+          {/* Tip Banner */}
+          <div className="p-4 rounded-2xl bg-blue-50 border border-blue-200 text-xs text-blue-950 space-y-1.5">
+            <div className="font-bold flex items-center gap-1.5 text-unifap-navy">
+              <Sparkles className="w-4 h-4 text-unifap-gold" />
+              <span>Dica de Ouro para Eventos com Múltiplas TVs:</span>
+            </div>
+            <p className="leading-relaxed text-slate-600">
+              Ao usar múltiplos projetores ou TVs na mesma sala, os diferentes navegadores podem ter pequenos milissegundos de diferença no processamento, gerando eco.
+              Para uma experiência profissional de auditório, silencie os telões remotos e plugue a saída de som da mesa do operador diretamente na caixa de som / PA principal.
+            </p>
+          </div>
+
+          {/* Remote Telão Sound Setting */}
+          <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                  <Tv className="w-4 h-4 text-unifap-navy" />
+                  <span>Áudio Remoto dos Telões (TVs e Projetores)</span>
+                </div>
+                <div className="text-[11px] text-slate-500 mt-0.5">
+                  Controla o sintetizador de som em todas as telas abertas em tempo real.
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={toggleTelaoAudio}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
+                  telaoSoundEnabled
+                    ? "bg-amber-500 text-slate-950 shadow-sm font-black"
+                    : "bg-slate-200 text-slate-600 hover:bg-slate-300 font-bold"
+                }`}
+              >
+                {telaoSoundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+                <span>{telaoSoundEnabled ? "LIGADO" : "MUDO"}</span>
+              </button>
+            </div>
+
+            {/* Telão Volume Slider */}
+            <div>
+              <div className="flex items-center justify-between text-xs font-semibold text-slate-700 mb-1.5">
+                <span>Volume dos Telões</span>
+                <span className="font-mono font-bold text-unifap-navy">{Math.round(telaoVolume * 100)}%</span>
+              </div>
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.05"
+                value={telaoVolume}
+                onChange={(e) => {
+                  const val = parseFloat(e.target.value);
+                  broadcastAudioConfig(val > 0 ? true : false, val);
+                }}
+                className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-unifap-navy"
+              />
+            </div>
+          </div>
+
+          {/* Local Operator Sound Setting */}
+          <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between">
+            <div>
+              <div className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                <Volume2 className="w-4 h-4 text-emerald-600" />
+                <span>Áudio Local (Neste Computador do Operador)</span>
+              </div>
+              <div className="text-[11px] text-slate-500 mt-0.5">
+                Ouvir os efeitos sonoros de roleta e vitória no notebook da operação.
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={toggleLocalSound}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
+                localSoundEnabled
+                  ? "bg-emerald-600 text-white shadow-sm font-black"
+                  : "bg-slate-200 text-slate-600 hover:bg-slate-300 font-bold"
+              }`}
+            >
+              {localSoundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+              <span>{localSoundEnabled ? "LIGADO" : "MUDO"}</span>
+            </button>
+          </div>
+
+          {/* Quick Presets */}
+          <div className="space-y-2 pt-2 border-t border-slate-100">
+            <div className="text-[11px] font-bold uppercase text-slate-400">Atalhos Rápidos:</div>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="text-xs"
+                onClick={() => {
+                  broadcastAudioConfig(false, 0);
+                  setLocalSoundEnabled(true);
+                  soundEngine.setEnabled(true);
+                }}
+                leftIcon={<VolumeX className="w-3.5 h-3.5 text-rose-500" />}
+              >
+                Mudo nos Telões + Som no Operador (Auditório)
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="text-xs"
+                onClick={() => {
+                  broadcastAudioConfig(true, 0.85);
+                  setLocalSoundEnabled(false);
+                  soundEngine.setEnabled(false);
+                }}
+                leftIcon={<Volume2 className="w-3.5 h-3.5 text-amber-500" />}
+              >
+                Som nos Telões + Mudo no Operador
+              </Button>
+            </div>
           </div>
         </div>
       </Modal>
