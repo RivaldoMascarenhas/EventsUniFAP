@@ -31,6 +31,7 @@ import {
 } from "lucide-react";
 import { padNumber, formatDateTime } from "@/lib/utils";
 import { motion } from "framer-motion";
+import { getSupabaseBrowserClient } from "@/lib/supabaseClient";
 
 export default function OperatorDrawPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: eventId } = use(params);
@@ -104,75 +105,66 @@ export default function OperatorDrawPage({ params }: { params: Promise<{ id: str
   const totalInRange = Math.max(0, maxRange - minRange + 1);
   const remainingInRange = Math.max(0, totalInRange - drawnInRange.length);
 
-  // Broadcast prize selection to realtime presentation
-  const handleSelectPrize = async (prize: any) => {
-    setSelectedPrizeId(prize.id);
+  // Broadcast helper using Supabase Realtime WebSocket (Instant) + API (Persistent)
+  const broadcastRealtime = async (payload: any) => {
+    const supabase = getSupabaseBrowserClient();
+    if (supabase) {
+      const ch = supabase.channel(`presentation:${eventId}`);
+      ch.send({
+        type: "broadcast",
+        event: "state_change",
+        payload,
+      }).catch(() => {});
+    }
+
     try {
       await fetch(`/api/events/${eventId}/realtime`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          type: "prize:show",
-          state: "SHOWING_PRIZE",
-          prizeId: prize.id,
-          prize,
-        }),
+        body: JSON.stringify(payload),
       });
-      info("Telão Atualizado", `Apresentando prêmio: ${prize.name}`);
     } catch {
-      // Realtime broadcast graceful failure
+      // Graceful fallback
     }
+  };
+
+  // Broadcast prize selection to realtime presentation
+  const handleSelectPrize = async (prize: any) => {
+    setSelectedPrizeId(prize.id);
+    await broadcastRealtime({
+      type: "prize:show",
+      state: "SHOWING_PRIZE",
+      prizeId: prize.id,
+      prize,
+    });
+    info("Telão Atualizado", `Apresentando prêmio: ${prize.name}`);
   };
 
   // Broadcast QR Code to presentation screen
   const handleShowQrCode = async () => {
-    try {
-      await fetch(`/api/events/${eventId}/realtime`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          type: "qr:show",
-          state: "SHOWING_QR_CODE",
-        }),
-      });
-      success("Telão 4K", "QR Code de inscrição projetado no telão!");
-    } catch {
-      error("Erro", "Falha ao enviar comando para o telão.");
-    }
+    await broadcastRealtime({
+      type: "qr:show",
+      state: "SHOWING_QR_CODE",
+    });
+    success("Telão 4K", "QR Code de inscrição projetado no telão!");
   };
 
   // Broadcast Event Logo / Emblem to presentation screen
   const handleShowEventLogo = async () => {
-    try {
-      await fetch(`/api/events/${eventId}/realtime`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          type: "logo:show",
-          state: "SHOWING_EVENT_LOGO",
-        }),
-      });
-      success("Telão 4K", "Identidade Visual e Logo do Evento projetadas no telão!");
-    } catch {
-      error("Erro", "Falha ao enviar comando para o telão.");
-    }
+    await broadcastRealtime({
+      type: "logo:show",
+      state: "SHOWING_EVENT_LOGO",
+    });
+    success("Telão 4K", "Identidade Visual e Logo do Evento projetadas no telão!");
   };
 
   // Broadcast Idle splash screen
   const handleShowIdle = async () => {
-    try {
-      await fetch(`/api/events/${eventId}/realtime`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          type: "idle:show",
-          state: "IDLE",
-        }),
-      });
-      info("Telão 4K", "Tela de espera institucional ativada.");
-    } catch {
-      error("Erro", "Falha ao enviar comando para o telão.");
-    }
+    await broadcastRealtime({
+      type: "idle:show",
+      state: "IDLE",
+    });
+    info("Telão 4K", "Tela de espera institucional ativada.");
   };
 
   const handleStartDraw = () => {
@@ -196,20 +188,12 @@ export default function OperatorDrawPage({ params }: { params: Promise<{ id: str
     soundEngine.play("DRAW_START");
 
     // 2. Broadcast drawing state to Telão in realtime
-    try {
-      await fetch(`/api/events/${eventId}/realtime`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          type: "draw:start",
-          state: "DRAWING",
-          prizeId: selectedPrizeId,
-          prize: selectedPrize,
-        }),
-      });
-    } catch (e) {
-      console.error(e);
-    }
+    await broadcastRealtime({
+      type: "draw:start",
+      state: "DRAWING",
+      prizeId: selectedPrizeId,
+      prize: selectedPrize,
+    });
 
     // 3. Generate unique Idempotency Key
     const idempotencyKey = typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `draw-${Date.now()}`;
@@ -239,6 +223,13 @@ export default function OperatorDrawPage({ params }: { params: Promise<{ id: str
         apiError = data.error || "Falha na execução do sorteio.";
       } else {
         drawResult = data;
+        // Broadcast result immediately to phone/projector screens
+        await broadcastRealtime({
+          type: "draw:result",
+          state: "RESULT",
+          winner: drawResult,
+          prize: drawResult.prize,
+        });
       }
     } catch (err: any) {
       apiError = err.message || "Erro de conexão ao executar sorteio.";

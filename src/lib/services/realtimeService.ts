@@ -1,3 +1,6 @@
+import { createClient } from "@supabase/supabase-js";
+import { prisma } from "@/lib/prisma";
+
 export type PresentationStageState = "IDLE" | "SHOWING_QR_CODE" | "SHOWING_EVENT_LOGO" | "SHOWING_PRIZE" | "DRAWING" | "RESULT";
 
 export interface RealtimePayload {
@@ -55,7 +58,7 @@ class RealtimeService {
     };
   }
 
-  public publish(eventId: string, event: Omit<RealtimePayload, "timestamp">) {
+  public async publish(eventId: string, event: Omit<RealtimePayload, "timestamp">) {
     const channel = this.getChannel(eventId);
     channel.state = event.state;
     if (event.prize !== undefined) channel.currentPrize = event.prize;
@@ -67,6 +70,7 @@ class RealtimeService {
       timestamp: Date.now(),
     };
 
+    // 1. Dispatch to local Node SSE subscribers
     channel.subscribers.forEach((cb) => {
       try {
         cb(payload);
@@ -74,6 +78,72 @@ class RealtimeService {
         console.error("[RealtimeService] Error dispatching to subscriber:", err);
       }
     });
+
+    // 2. Persist in Database for multi-server / serverless sync
+    try {
+      await prisma.idempotencyRecord.upsert({
+        where: { key: `presentation_state:${eventId}` },
+        update: {
+          result: JSON.stringify(payload),
+        },
+        create: {
+          key: `presentation_state:${eventId}`,
+          eventId,
+          result: JSON.stringify(payload),
+        },
+      });
+    } catch (dbErr) {
+      console.warn("[RealtimeService] Could not persist state in DB:", dbErr);
+    }
+
+    // 3. Broadcast to Supabase Realtime WebSocket channel for cross-device instant sync
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+    if (supabaseUrl && supabaseKey) {
+      try {
+        const supabase = createClient(supabaseUrl, supabaseKey);
+        const ch = supabase.channel(`presentation:${eventId}`);
+        ch.subscribe((status) => {
+          if (status === "SUBSCRIBED") {
+            ch.send({
+              type: "broadcast",
+              event: "state_change",
+              payload,
+            }).finally(() => {
+              supabase.removeChannel(ch);
+            });
+          }
+        });
+      } catch (sbErr) {
+        console.warn("[RealtimeService] Supabase broadcast error:", sbErr);
+      }
+    }
+  }
+
+  public async getPersistentState(eventId: string): Promise<RealtimePayload> {
+    try {
+      const record = await prisma.idempotencyRecord.findUnique({
+        where: { key: `presentation_state:${eventId}` },
+      });
+
+      if (record && record.result) {
+        return JSON.parse(record.result);
+      }
+    } catch {
+      // Fallback
+    }
+
+    const channel = this.getChannel(eventId);
+    return {
+      type: "state:sync",
+      eventId,
+      state: channel.state,
+      prizeId: channel.currentPrizeId,
+      prize: channel.currentPrize,
+      winner: channel.currentWinner,
+      timestamp: Date.now(),
+    };
   }
 
   public getState(eventId: string) {

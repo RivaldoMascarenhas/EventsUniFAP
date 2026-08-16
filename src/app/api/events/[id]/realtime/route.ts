@@ -10,6 +10,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const { id: eventId } = await params;
   const { searchParams } = new URL(req.url);
   const token = searchParams.get("token");
+  const isPoll = searchParams.get("poll") === "true";
 
   // Validate presentation access via token OR session
   let isAuthorized = false;
@@ -27,9 +28,16 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   }
 
   if (!isAuthorized) {
-    return new Response(JSON.stringify({ error: "Token de apresentação inválido ou não autorizado" }), {
-      status: 401,
-      headers: { "Content-Type": "application/json" },
+    return NextResponse.json({ error: "Token de apresentação inválido ou não autorizado" }, { status: 401 });
+  }
+
+  // If poll mode requested (or standard JSON fetch for state snapshot)
+  if (isPoll || req.headers.get("accept")?.includes("application/json")) {
+    const state = await realtimeService.getPersistentState(eventId);
+    return NextResponse.json(state, {
+      headers: {
+        "Cache-Control": "no-store, max-age=0",
+      },
     });
   }
 
@@ -75,7 +83,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     const { type, state, prizeId, prize, winner } = body;
 
-    realtimeService.publish(eventId, {
+    await realtimeService.publish(eventId, {
       type,
       eventId,
       state,

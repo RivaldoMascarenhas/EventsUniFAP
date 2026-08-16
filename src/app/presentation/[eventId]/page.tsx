@@ -6,6 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { soundEngine } from "@/lib/sound/soundEngine";
 import { fireInstitutionalConfetti } from "@/components/ui/ConfettiEffect";
 import { BrandLogo } from "@/components/branding/BrandLogo";
+import { getSupabaseBrowserClient } from "@/lib/supabaseClient";
 import QRCode from "qrcode";
 import {
   Trophy,
@@ -118,58 +119,119 @@ function PresentationContent({ eventId }: { eventId: string }) {
     animationTimerRef.current = stepInterval;
   };
 
-  // Realtime SSE EventSource connection (STABLE: only depends on eventId and token)
+  // Central State Dispatcher for all realtime transports (Supabase Broadcast, SSE, Polling)
+  const handleIncomingState = (payload: any) => {
+    if (!payload || !payload.type) return;
+
+    if (payload.type === "state:sync") {
+      setState(payload.state || "IDLE");
+      if (payload.prize) setCurrentPrize(payload.prize);
+      if (payload.winner) setCurrentWinner(payload.winner);
+    } else if (payload.type === "qr:show") {
+      setState("SHOWING_QR_CODE");
+    } else if (payload.type === "logo:show") {
+      setState("SHOWING_EVENT_LOGO");
+    } else if (payload.type === "idle:show") {
+      setState("IDLE");
+      setCurrentWinner(null);
+    } else if (payload.type === "prize:show") {
+      setState("SHOWING_PRIZE");
+      setCurrentPrize(payload.prize);
+      setCurrentWinner(null);
+    } else if (payload.type === "draw:start") {
+      setState("DRAWING");
+      soundEngine.play("DRAW_START");
+    } else if (payload.type === "draw:result") {
+      if (payload.winner) {
+        startDrawRollAnimation(payload.winner);
+      }
+    } else if (payload.type === "draw:cancel") {
+      if (animationTimerRef.current) clearInterval(animationTimerRef.current);
+      setState("IDLE");
+      setCurrentWinner(null);
+    }
+  };
+
+  // 1. Primary: Supabase Realtime WebSocket Broadcast (Instant delivery on all devices)
   useEffect(() => {
-    const sseUrl = `/api/events/${eventId}/realtime${token ? `?token=${token}` : ""}`;
-    const eventSource = new EventSource(sseUrl);
+    const supabase = getSupabaseBrowserClient();
+    if (!supabase) return;
 
-    eventSource.onopen = () => {
-      setIsConnected(true);
-    };
-
-    eventSource.onmessage = (e) => {
-      try {
-        const payload = JSON.parse(e.data);
-
-        if (payload.type === "state:sync") {
-          setState(payload.state || "IDLE");
-          if (payload.prize) setCurrentPrize(payload.prize);
-          if (payload.winner) setCurrentWinner(payload.winner);
-        } else if (payload.type === "qr:show") {
-          setState("SHOWING_QR_CODE");
-        } else if (payload.type === "logo:show") {
-          setState("SHOWING_EVENT_LOGO");
-        } else if (payload.type === "idle:show") {
-          setState("IDLE");
-          setCurrentWinner(null);
-        } else if (payload.type === "prize:show") {
-          setState("SHOWING_PRIZE");
-          setCurrentPrize(payload.prize);
-          setCurrentWinner(null);
-        } else if (payload.type === "draw:start") {
-          setState("DRAWING");
-          soundEngine.play("DRAW_START");
-        } else if (payload.type === "draw:result") {
-          if (payload.winner) {
-            startDrawRollAnimation(payload.winner);
-          }
-        } else if (payload.type === "draw:cancel") {
-          if (animationTimerRef.current) clearInterval(animationTimerRef.current);
-          setState("IDLE");
-          setCurrentWinner(null);
+    const channel = supabase.channel(`presentation:${eventId}`);
+    channel
+      .on("broadcast", { event: "state_change" }, ({ payload }) => {
+        setIsConnected(true);
+        handleIncomingState(payload);
+      })
+      .subscribe((status) => {
+        if (status === "SUBSCRIBED") {
+          setIsConnected(true);
         }
-      } catch (err) {
-        console.error("Error parsing SSE payload", err);
+      });
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [eventId]);
+
+  // 2. Secondary: Background Polling Sync (Runs every 2 seconds to guarantee mobile phones never desync)
+  useEffect(() => {
+    let isMounted = true;
+    const syncState = async () => {
+      try {
+        const res = await fetch(`/api/events/${eventId}/realtime?poll=true${token ? `&token=${token}` : ""}`, {
+          cache: "no-store",
+        });
+        if (res.ok && isMounted) {
+          const payload = await res.json();
+          setIsConnected(true);
+          if (payload && payload.state) {
+            handleIncomingState(payload);
+          }
+        }
+      } catch {
+        // Fallback
       }
     };
 
-    eventSource.onerror = () => {
-      setIsConnected(false);
+    syncState();
+    const interval = setInterval(syncState, 2000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
     };
+  }, [eventId, token]);
+
+  // 3. Tertiary: Standard SSE Connection
+  useEffect(() => {
+    const sseUrl = `/api/events/${eventId}/realtime${token ? `?token=${token}` : ""}`;
+    let eventSource: EventSource | null = null;
+    try {
+      eventSource = new EventSource(sseUrl);
+
+      eventSource.onopen = () => {
+        setIsConnected(true);
+      };
+
+      eventSource.onmessage = (e) => {
+        try {
+          const payload = JSON.parse(e.data);
+          handleIncomingState(payload);
+        } catch (err) {
+          console.error("Error parsing SSE payload", err);
+        }
+      };
+
+      eventSource.onerror = () => {
+        // Handled gracefully by Supabase Realtime and Polling
+      };
+    } catch {
+      // Ignore
+    }
 
     return () => {
       if (animationTimerRef.current) clearInterval(animationTimerRef.current);
-      eventSource.close();
+      if (eventSource) eventSource.close();
     };
   }, [eventId, token]);
 
