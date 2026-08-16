@@ -6,6 +6,8 @@ import { eventSchema } from "@/lib/validations";
 import { AuditService } from "@/lib/services/auditService";
 import { AuditAction } from "@/lib/types/enums";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await getServerSession(authOptions);
@@ -24,6 +26,23 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
             },
           },
           orderBy: { order: "asc" },
+        },
+        draws: {
+          include: {
+            prize: {
+              include: {
+                sponsor: true,
+              },
+            },
+            winnerParticipant: true,
+            operator: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+          },
+          orderBy: { timestamp: "desc" },
         },
         participants: {
           orderBy: { ticketNumber: "asc" },
@@ -46,7 +65,11 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       return NextResponse.json({ error: "Evento não encontrado" }, { status: 404 });
     }
 
-    return NextResponse.json(event);
+    return NextResponse.json(event, {
+      headers: {
+        "Cache-Control": "no-store, max-age=0",
+      },
+    });
   } catch (error: any) {
     console.error("[GET /api/events/[id]]", error);
     return NextResponse.json({ error: error.message || "Erro ao buscar evento" }, { status: 500 });

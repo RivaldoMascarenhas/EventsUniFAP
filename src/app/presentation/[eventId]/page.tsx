@@ -49,6 +49,18 @@ function PresentationContent({ eventId }: { eventId: string }) {
   const [rollingNumber, setRollingNumber] = useState("000");
   const [audioFeedback, setAudioFeedback] = useState<string | null>(null);
 
+  // Restore audio settings from localStorage
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(`unifap_telao_sound_${eventId}`);
+      if (saved !== null) {
+        const isEnabled = saved === "true";
+        setSoundEnabled(isEnabled);
+        soundEngine.setEnabled(isEnabled);
+      }
+    } catch {}
+  }, [eventId]);
+
   const animationTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const setSafeState = (newState: PresentationState) => {
@@ -235,6 +247,9 @@ function PresentationContent({ eventId }: { eventId: string }) {
       if (typeof payload.soundEnabled === "boolean") {
         setSoundEnabled(payload.soundEnabled);
         soundEngine.setEnabled(payload.soundEnabled);
+        try {
+          localStorage.setItem(`unifap_telao_sound_${eventId}`, String(payload.soundEnabled));
+        } catch {}
 
         if (!isInitialLoad) {
           if (audioFeedbackTimeoutRef.current) clearTimeout(audioFeedbackTimeoutRef.current);
@@ -367,6 +382,9 @@ function PresentationContent({ eventId }: { eventId: string }) {
     const next = !soundEnabled;
     setSoundEnabled(next);
     soundEngine.setEnabled(next);
+    try {
+      localStorage.setItem(`unifap_telao_sound_${eventId}`, String(next));
+    } catch {}
   };
 
   const toggleFullscreen = () => {

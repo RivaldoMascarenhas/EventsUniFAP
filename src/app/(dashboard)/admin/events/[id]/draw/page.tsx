@@ -46,11 +46,35 @@ export default function OperatorDrawPage({ params }: { params: Promise<{ id: str
   const [minRange, setMinRange] = useState<number>(1);
   const [maxRange, setMaxRange] = useState<number>(100);
   
-  // Audio Controls: Separate local and remote (presentation screens)
+  // Audio Controls: Separate local and remote (presentation screens) with localStorage persistence
   const [localSoundEnabled, setLocalSoundEnabled] = useState(true);
   const [telaoSoundEnabled, setTelaoSoundEnabled] = useState(true);
   const [telaoVolume, setTelaoVolume] = useState<number>(0.85);
   const [isAudioModalOpen, setIsAudioModalOpen] = useState(false);
+
+  // Restore audio settings from localStorage
+  useEffect(() => {
+    try {
+      const savedLocal = localStorage.getItem("unifap_operator_local_sound");
+      if (savedLocal !== null) {
+        const isLocal = savedLocal === "true";
+        setLocalSoundEnabled(isLocal);
+        soundEngine.setEnabled(isLocal);
+      }
+
+      const savedTelao = localStorage.getItem(`unifap_telao_sound_${eventId}`);
+      if (savedTelao !== null) {
+        setTelaoSoundEnabled(savedTelao === "true");
+      }
+
+      const savedVolume = localStorage.getItem(`unifap_telao_volume_${eventId}`);
+      if (savedVolume !== null) {
+        setTelaoVolume(parseFloat(savedVolume));
+      }
+    } catch {
+      // Ignore localStorage restrictions
+    }
+  }, [eventId]);
 
   const [isLoading, setIsLoading] = useState(true);
   const [isDrawing, setIsDrawing] = useState(false);
@@ -63,12 +87,12 @@ export default function OperatorDrawPage({ params }: { params: Promise<{ id: str
   const [latestWinner, setLatestWinner] = useState<any>(null);
   const [presentationTokenUrl, setPresentationTokenUrl] = useState<string>("");
 
-  const fetchEventData = async () => {
+  const fetchEventData = async (silent = false) => {
     try {
-      setIsLoading(true);
+      if (!silent) setIsLoading(true);
       const [resEvent, resToken] = await Promise.all([
-        fetch(`/api/events/${eventId}`),
-        fetch(`/api/events/${eventId}/presentation-token`),
+        fetch(`/api/events/${eventId}`, { cache: "no-store" }),
+        fetch(`/api/events/${eventId}/presentation-token`, { cache: "no-store" }),
       ]);
 
       if (!resEvent.ok) throw new Error("Evento não encontrado");
@@ -82,13 +106,18 @@ export default function OperatorDrawPage({ params }: { params: Promise<{ id: str
 
       const availablePrizes = (data.prizes || []).filter((p: any) => p.status === "AVAILABLE");
       setPrizes(availablePrizes);
-      if (availablePrizes.length > 0 && !selectedPrizeId) {
-        setSelectedPrizeId(availablePrizes[0].id);
+      if (availablePrizes.length > 0) {
+        setSelectedPrizeId((prev) => {
+          const isStillAvailable = availablePrizes.some((p: any) => p.id === prev);
+          return isStillAvailable ? prev : availablePrizes[0].id;
+        });
+      } else {
+        setSelectedPrizeId("");
       }
     } catch (err: any) {
       error("Erro", err.message);
     } finally {
-      setIsLoading(false);
+      if (!silent) setIsLoading(false);
     }
   };
 
@@ -100,6 +129,11 @@ export default function OperatorDrawPage({ params }: { params: Promise<{ id: str
   const broadcastAudioConfig = async (enabled: boolean, vol: number = telaoVolume) => {
     setTelaoSoundEnabled(enabled);
     setTelaoVolume(vol);
+
+    try {
+      localStorage.setItem(`unifap_telao_sound_${eventId}`, String(enabled));
+      localStorage.setItem(`unifap_telao_volume_${eventId}`, String(vol));
+    } catch {}
 
     await broadcastRealtime({
       type: "audio:config",
@@ -122,6 +156,9 @@ export default function OperatorDrawPage({ params }: { params: Promise<{ id: str
     const next = !localSoundEnabled;
     setLocalSoundEnabled(next);
     soundEngine.setEnabled(next);
+    try {
+      localStorage.setItem("unifap_operator_local_sound", String(next));
+    } catch {}
   };
 
   const selectedPrize = prizes.find((p) => p.id === selectedPrizeId);
@@ -342,7 +379,7 @@ export default function OperatorDrawPage({ params }: { params: Promise<{ id: str
           success("Sorteio Concluído!", `Número Sorteado: #${drawResult.drawnNumber}`);
         }, 120);
 
-        fetchEventData();
+        fetchEventData(true);
       }
     };
 
@@ -366,7 +403,10 @@ export default function OperatorDrawPage({ params }: { params: Promise<{ id: str
             <Button
               variant="gold"
               size="md"
-              onClick={() => setIsShareModalOpen(true)}
+              onClick={() => {
+                fetchEventData(true);
+                setIsShareModalOpen(true);
+              }}
               leftIcon={<Share2 className="w-4 h-4 text-slate-950" />}
             >
               Divulgar Ganhadores
