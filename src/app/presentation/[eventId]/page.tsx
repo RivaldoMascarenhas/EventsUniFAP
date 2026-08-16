@@ -78,31 +78,43 @@ function PresentationContent({ eventId }: { eventId: string }) {
     fetchEvent();
   }, [eventId]);
 
+  const lastAnimatedDrawIdRef = useRef<string | null>(null);
+  const isAnimatingRef = useRef(false);
+
   // Execute Suspense Rolling animation when draw completes
   const startDrawRollAnimation = (winnerData: any) => {
     if (animationTimerRef.current) clearInterval(animationTimerRef.current);
+    isAnimatingRef.current = true;
 
     setState("DRAWING");
+    if (winnerData?.prize) setCurrentPrize(winnerData.prize);
     soundEngine.play("DRAW_START");
 
+    const targetNum = Number(winnerData?.drawnNumber ?? winnerData?.winner?.ticketNumber ?? 0);
+    const minBound = winnerData?.minNumber ? Number(winnerData.minNumber) : 1;
+    const maxBound = winnerData?.maxNumber ? Number(winnerData.maxNumber) : Math.max(targetNum, 100);
+    const digits = maxBound > 99 ? 3 : 2;
+
     let count = 0;
-    const totalSteps = 28; // ~2.2 seconds of suspense
+    const totalSteps = 24; // ~1.8 seconds of clean suspense
 
     const stepInterval = setInterval(() => {
       count++;
-      const randomNum = Math.floor(Math.random() * 900) + 100;
-      setRollingNumber(padNumber(randomNum, 3));
+      const randomNum = Math.floor(Math.random() * (maxBound - minBound + 1)) + minBound;
+      setRollingNumber(padNumber(randomNum, digits));
 
       if (count % 3 === 0) {
         soundEngine.play("DRAW_TICK");
       }
 
-      if (count === 20) {
+      if (count === 16) {
         soundEngine.play("DRAW_SLOWDOWN");
       }
 
       if (count >= totalSteps) {
         clearInterval(stepInterval);
+        isAnimatingRef.current = false;
+        setRollingNumber(padNumber(targetNum, digits));
         setCurrentWinner(winnerData);
         setState("RESULT");
 
@@ -123,30 +135,56 @@ function PresentationContent({ eventId }: { eventId: string }) {
   const handleIncomingState = (payload: any) => {
     if (!payload || !payload.type) return;
 
+    const drawKey = payload.drawId || payload.winner?.drawId || (payload.winner?.drawnNumber ? `num-${payload.winner.drawnNumber}-${payload.winner.prize?.id || ''}` : null);
+
     if (payload.type === "state:sync") {
-      setState(payload.state || "IDLE");
-      if (payload.prize) setCurrentPrize(payload.prize);
-      if (payload.winner) setCurrentWinner(payload.winner);
+      if (!isAnimatingRef.current) {
+        setState(payload.state || "IDLE");
+        if (payload.prize) setCurrentPrize(payload.prize);
+        if (payload.winner) setCurrentWinner(payload.winner);
+      }
     } else if (payload.type === "qr:show") {
+      if (animationTimerRef.current) clearInterval(animationTimerRef.current);
+      isAnimatingRef.current = false;
       setState("SHOWING_QR_CODE");
     } else if (payload.type === "logo:show") {
+      if (animationTimerRef.current) clearInterval(animationTimerRef.current);
+      isAnimatingRef.current = false;
       setState("SHOWING_EVENT_LOGO");
     } else if (payload.type === "idle:show") {
+      if (animationTimerRef.current) clearInterval(animationTimerRef.current);
+      isAnimatingRef.current = false;
       setState("IDLE");
       setCurrentWinner(null);
     } else if (payload.type === "prize:show") {
+      if (animationTimerRef.current) clearInterval(animationTimerRef.current);
+      isAnimatingRef.current = false;
       setState("SHOWING_PRIZE");
-      setCurrentPrize(payload.prize);
+      if (payload.prize) setCurrentPrize(payload.prize);
       setCurrentWinner(null);
     } else if (payload.type === "draw:start") {
-      setState("DRAWING");
-      soundEngine.play("DRAW_START");
+      if (!isAnimatingRef.current) {
+        setState("DRAWING");
+        if (payload.prize) setCurrentPrize(payload.prize);
+        soundEngine.play("DRAW_START");
+      }
     } else if (payload.type === "draw:result") {
       if (payload.winner) {
-        startDrawRollAnimation(payload.winner);
+        // If already animated this draw, directly show result without looping
+        if (drawKey && lastAnimatedDrawIdRef.current === drawKey) {
+          if (!isAnimatingRef.current) {
+            setCurrentWinner(payload.winner);
+            if (payload.winner.prize || payload.prize) setCurrentPrize(payload.winner.prize || payload.prize);
+            setState("RESULT");
+          }
+        } else {
+          if (drawKey) lastAnimatedDrawIdRef.current = drawKey;
+          startDrawRollAnimation(payload.winner);
+        }
       }
     } else if (payload.type === "draw:cancel") {
       if (animationTimerRef.current) clearInterval(animationTimerRef.current);
+      isAnimatingRef.current = false;
       setState("IDLE");
       setCurrentWinner(null);
     }

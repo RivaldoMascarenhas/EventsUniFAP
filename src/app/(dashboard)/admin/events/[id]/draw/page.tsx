@@ -246,6 +246,8 @@ export default function OperatorDrawPage({ params }: { params: Promise<{ id: str
     let iterations = 0;
     const maxIterations = 35;
 
+    const digits = drawType === "RANGE" && maxRange <= 99 ? 2 : 3;
+
     const interval = setInterval(() => {
       iterations++;
       const randomFakeNum =
@@ -253,7 +255,7 @@ export default function OperatorDrawPage({ params }: { params: Promise<{ id: str
           ? Math.floor(Math.random() * (maxRange - minRange + 1)) + minRange
           : Math.floor(Math.random() * 900) + 100;
 
-      setRollingNumber(padNumber(randomFakeNum, 3));
+      setRollingNumber(padNumber(randomFakeNum, digits));
       setRollingName(drawResult?.winner?.name || "Sorteando...");
 
       if (iterations % 4 === 0) {
@@ -269,7 +271,7 @@ export default function OperatorDrawPage({ params }: { params: Promise<{ id: str
         clearInterval(interval);
 
         // 6. Reveal Final Winner
-        setRollingNumber(padNumber(drawResult.drawnNumber, 3));
+        setRollingNumber(padNumber(drawResult.drawnNumber, digits));
         setRollingName(drawResult.drawnName);
         setLatestWinner(drawResult);
         setIsDrawing(false);

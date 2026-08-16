@@ -43,6 +43,8 @@ export interface DrawResultPayload {
       logoUrl?: string | null;
     } | null;
   };
+  minNumber?: number;
+  maxNumber?: number;
 }
 
 export class LotteryService {
@@ -320,6 +322,8 @@ export class LotteryService {
               }
             : null,
         },
+        minNumber: drawType === DrawType.RANGE ? Math.min(minNumber, maxNumber) : undefined,
+        maxNumber: drawType === DrawType.RANGE ? Math.max(minNumber, maxNumber) : undefined,
       };
 
       // 9. Store Idempotency Record if key provided
