@@ -33,7 +33,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       });
     }
 
-    const presentationUrl = `${process.env.NEXT_PUBLIC_APP_URL || ""}/presentation/${event.id}?token=${token}`;
+    const presentationUrl = `/presentation/${event.id}?token=${token}`;
 
     return NextResponse.json({
       token,
@@ -67,7 +67,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       metadata: { eventName: updated.name },
     });
 
-    const presentationUrl = `${process.env.NEXT_PUBLIC_APP_URL || ""}/presentation/${updated.id}?token=${newToken}`;
+    const presentationUrl = `/presentation/${updated.id}?token=${newToken}`;
 
     return NextResponse.json({
       token: newToken,
