@@ -66,7 +66,7 @@ export function AdminSidebar() {
               Sorteios
             </span>
           </div>
-          <div className="text-[11px] text-blue-200/80 font-medium tracking-wide">
+          <div className="text-[11px] text-blue-200/80 font-medium tracking-wide text-center">
             Painel Institucional de Gestão
           </div>
         </Link>
