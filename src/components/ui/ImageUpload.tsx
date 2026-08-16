@@ -72,14 +72,14 @@ export function ImageUpload({
 
       {value ? (
         <div className="relative group rounded-2xl overflow-hidden border-2 border-slate-200 bg-slate-50 p-2 flex items-center gap-4 transition hover:border-unifap-navy/40">
-          <div className="w-20 h-20 rounded-xl overflow-hidden bg-white border border-slate-200 flex items-center justify-center shrink-0 p-1">
-            <img src={value} alt="Preview" className="w-full h-full object-contain" />
+          <div className="w-32 h-20 rounded-xl overflow-hidden bg-white border border-slate-200 flex items-center justify-center shrink-0 p-2 shadow-xs">
+            <img src={value} alt="Preview" className="max-w-full max-h-full object-contain" />
           </div>
 
           <div className="flex-1 min-w-0">
-            <div className="text-xs font-bold text-slate-800 truncate">Imagem do Evento</div>
+            <div className="text-xs font-bold text-slate-800 truncate">{label || "Imagem Carregada"}</div>
             <div className="text-[11px] text-emerald-600 font-semibold flex items-center gap-1 mt-0.5">
-              <span>✓ Carregada</span>
+              <span>✓ Imagem pronta para uso</span>
             </div>
             <div className="flex items-center gap-2 mt-2">
               <Button

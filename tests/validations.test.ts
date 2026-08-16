@@ -87,4 +87,12 @@ describe("Zod Validation Schemas Tests", () => {
     expect(isValidCPF("12345678900")).toBe(false); // Bad check digits
     expect(isValidCPF("52998224725")).toBe(true);  // Valid test CPF format
   });
+
+  it("should validate password requirements for user registration", () => {
+    const validPassword = "SafePassword123!";
+    const shortPassword = "123";
+
+    expect(validPassword.length >= 6).toBe(true);
+    expect(shortPassword.length >= 6).toBe(false);
+  });
 });

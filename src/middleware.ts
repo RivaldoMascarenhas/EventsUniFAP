@@ -6,6 +6,13 @@ export default withAuth(
     const { pathname } = req.nextUrl;
     const token = req.nextauth.token;
 
+    // Force password reset before accessing any admin features
+    if (token?.mustChangePassword) {
+      if (!pathname.startsWith("/change-password") && !pathname.startsWith("/api/auth")) {
+        return NextResponse.redirect(new URL("/change-password", req.url));
+      }
+    }
+
     // Admin only routes
     if (pathname.startsWith("/admin/users") || pathname.startsWith("/admin/audit")) {
       if (token?.role !== "ADMIN") {
@@ -39,7 +46,7 @@ export default withAuth(
           return true;
         }
 
-        // Require authentication for other admin routes
+        // Require authentication for other admin routes and change-password
         return !!token;
       },
     },
@@ -53,5 +60,6 @@ export const config = {
   matcher: [
     "/admin/:path*",
     "/presentation/:path*",
+    "/change-password",
   ],
 };

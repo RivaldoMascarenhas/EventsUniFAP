@@ -566,15 +566,17 @@ function PresentationContent({ eventId }: { eventId: string }) {
                   </div>
                 </div>
                 {currentPrize.sponsor?.logoUrl ? (
-                  <div className="w-14 h-14 rounded-xl bg-white/10 p-1 flex items-center justify-center">
+                  <div className="h-14 max-w-[200px] px-3.5 py-1.5 rounded-xl bg-white/95 backdrop-blur-md shadow-lg flex items-center justify-center">
                     <img
                       src={currentPrize.sponsor.logoUrl}
                       alt="Logo Patrocinador"
-                      className="w-full h-full object-contain"
+                      className="max-h-11 max-w-full object-contain"
                     />
                   </div>
                 ) : (
-                  <Building2 className="w-8 h-8 text-unifap-gold" />
+                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-unifap-gold to-amber-600 text-slate-950 flex items-center justify-center font-black text-base shadow-md">
+                    {currentPrize.sponsor?.name ? currentPrize.sponsor.name.slice(0, 2).toUpperCase() : "UF"}
+                  </div>
                 )}
               </div>
             </div>

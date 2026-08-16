@@ -13,6 +13,7 @@ const updateUserSchema = z.object({
   password: z.string().min(6).optional().or(z.literal("")),
   role: z.enum(["ADMIN", "OPERATOR", "PRESENTER"]).optional(),
   active: z.boolean().optional(),
+  mustChangePassword: z.boolean().optional(),
 });
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -46,6 +47,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (validated.email) dataToUpdate.email = validated.email.trim().toLowerCase();
     if (validated.role) dataToUpdate.role = validated.role;
     if (typeof validated.active === "boolean") dataToUpdate.active = validated.active;
+    if (typeof validated.mustChangePassword === "boolean") dataToUpdate.mustChangePassword = validated.mustChangePassword;
 
     if (validated.password && validated.password.trim().length >= 6) {
       dataToUpdate.passwordHash = await bcrypt.hash(validated.password, 10);
@@ -60,6 +62,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         email: true,
         role: true,
         active: true,
+        mustChangePassword: true,
         updatedAt: true,
       },
     });

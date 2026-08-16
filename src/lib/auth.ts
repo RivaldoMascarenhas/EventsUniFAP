@@ -67,6 +67,7 @@ export const authOptions: NextAuthOptions = {
           name: user.name,
           email: user.email,
           role: user.role as Role,
+          mustChangePassword: Boolean(user.mustChangePassword),
         };
       },
     }),
@@ -83,10 +84,16 @@ export const authOptions: NextAuthOptions = {
       }
       return baseUrl || "/login";
     },
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger, session }) {
       if (user) {
         token.id = user.id;
         token.role = user.role as Role;
+        token.mustChangePassword = user.mustChangePassword ?? false;
+      }
+      if (trigger === "update" && session) {
+        if (typeof session.mustChangePassword === "boolean") {
+          token.mustChangePassword = session.mustChangePassword;
+        }
       }
       return token;
     },
@@ -94,6 +101,7 @@ export const authOptions: NextAuthOptions = {
       if (session.user && token) {
         session.user.id = token.id as string;
         session.user.role = token.role as Role;
+        session.user.mustChangePassword = Boolean(token.mustChangePassword);
       }
       return session;
     },

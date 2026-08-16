@@ -13,6 +13,7 @@ const createUserSchema = z.object({
   password: z.string().min(6, "A senha deve ter no mínimo 6 caracteres"),
   role: z.enum(["ADMIN", "OPERATOR", "PRESENTER"]).default("OPERATOR"),
   active: z.boolean().default(true),
+  mustChangePassword: z.boolean().default(true),
 });
 
 export async function GET(req: NextRequest) {
@@ -29,6 +30,7 @@ export async function GET(req: NextRequest) {
         email: true,
         role: true,
         active: true,
+        mustChangePassword: true,
         createdAt: true,
         updatedAt: true,
         _count: {
@@ -74,6 +76,7 @@ export async function POST(req: NextRequest) {
         passwordHash,
         role: validated.role,
         active: validated.active,
+        mustChangePassword: validated.mustChangePassword,
       },
       select: {
         id: true,
@@ -81,6 +84,7 @@ export async function POST(req: NextRequest) {
         email: true,
         role: true,
         active: true,
+        mustChangePassword: true,
         createdAt: true,
       },
     });

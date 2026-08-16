@@ -33,6 +33,7 @@ interface UserItem {
   email: string;
   role: "ADMIN" | "OPERATOR" | "PRESENTER";
   active: boolean;
+  mustChangePassword?: boolean;
   createdAt: string;
   _count: {
     drawsExecuted: number;
@@ -57,6 +58,7 @@ export default function UsersManagementPage() {
     password: "",
     role: "OPERATOR",
     active: true,
+    mustChangePassword: true,
   });
 
   // Edit Modal State
@@ -68,6 +70,7 @@ export default function UsersManagementPage() {
     password: "",
     role: "OPERATOR",
     active: true,
+    mustChangePassword: false,
   });
 
   // Delete Modal State
@@ -108,6 +111,7 @@ export default function UsersManagementPage() {
       password: generateRandomPassword(),
       role: "OPERATOR",
       active: true,
+      mustChangePassword: true,
     });
     setIsCreateModalOpen(true);
   };
@@ -143,6 +147,7 @@ export default function UsersManagementPage() {
       password: "",
       role: user.role,
       active: user.active,
+      mustChangePassword: Boolean(user.mustChangePassword),
     });
     setIsEditModalOpen(true);
   };
@@ -161,6 +166,7 @@ export default function UsersManagementPage() {
           email: editForm.email,
           role: editForm.role,
           active: editForm.active,
+          mustChangePassword: editForm.mustChangePassword,
           ...(editForm.password.trim() ? { password: editForm.password } : {}),
         }),
       });
@@ -307,8 +313,14 @@ export default function UsersManagementPage() {
                     <div className="w-12 h-12 rounded-2xl bg-unifap-navy text-white flex items-center justify-center font-black text-base shadow-sm">
                       {user.name.slice(0, 2).toUpperCase()}
                     </div>
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex flex-wrap items-center gap-1.5">
                       {getRoleBadge(user.role)}
+                      {user.mustChangePassword && (
+                        <span className="px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 text-[10px] font-bold border border-amber-200 flex items-center gap-1 shadow-2xs">
+                          <Key className="w-3 h-3 text-amber-600" />
+                          <span>Troca Pendente</span>
+                        </span>
+                      )}
                       {isMe && (
                         <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 text-[10px] font-bold border border-slate-200">
                           Você
@@ -438,7 +450,7 @@ export default function UsersManagementPage() {
             </div>
 
             <div>
-              <Label required>Senha de Acesso</Label>
+              <Label required>Senha Inicial de Acesso</Label>
               <div className="relative">
                 <Input
                   value={createForm.password}
@@ -456,6 +468,24 @@ export default function UsersManagementPage() {
                 </button>
               </div>
             </div>
+          </div>
+
+          <div className="p-3.5 rounded-xl bg-amber-50/70 border border-amber-200/80 flex items-center justify-between">
+            <div>
+              <div className="text-xs font-bold text-amber-900 flex items-center gap-1.5">
+                <Key className="w-3.5 h-3.5 text-amber-700" />
+                <span>Exigir redefinição de senha no próximo login?</span>
+              </div>
+              <div className="text-[11px] text-amber-700/80">
+                O usuário será obrigado a definir sua senha pessoal ao fazer o primeiro acesso.
+              </div>
+            </div>
+            <input
+              type="checkbox"
+              className="w-5 h-5 rounded text-unifap-navy focus:ring-unifap-navy border-slate-300"
+              checked={createForm.mustChangePassword}
+              onChange={(e) => setCreateForm({ ...createForm, mustChangePassword: e.target.checked })}
+            />
           </div>
 
           <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between">
@@ -532,6 +562,24 @@ export default function UsersManagementPage() {
                 onChange={(e) => setEditForm({ ...editForm, password: e.target.value })}
               />
             </div>
+          </div>
+
+          <div className="p-3.5 rounded-xl bg-amber-50/70 border border-amber-200/80 flex items-center justify-between">
+            <div>
+              <div className="text-xs font-bold text-amber-900 flex items-center gap-1.5">
+                <Key className="w-3.5 h-3.5 text-amber-700" />
+                <span>Exigir redefinição de senha no próximo login?</span>
+              </div>
+              <div className="text-[11px] text-amber-700/80">
+                Força o usuário a cadastrar uma nova senha assim que se autenticar.
+              </div>
+            </div>
+            <input
+              type="checkbox"
+              className="w-5 h-5 rounded text-unifap-navy focus:ring-unifap-navy border-slate-300"
+              checked={editForm.mustChangePassword}
+              onChange={(e) => setEditForm({ ...editForm, mustChangePassword: e.target.checked })}
+            />
           </div>
 
           <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between">
