@@ -82,6 +82,7 @@ function PresentationContent({ eventId }: { eventId: string }) {
   const lastAnimatedDrawIdRef = useRef<string | null>(null);
   const isAnimatingRef = useRef(false);
   const rafIdRef = useRef<number | null>(null);
+  const audioFeedbackTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Execute Ultra Fluid Suspense Rolling animation with Physics Deceleration Curve
   const startDrawRollAnimation = (winnerData: any) => {
@@ -139,8 +140,6 @@ function PresentationContent({ eventId }: { eventId: string }) {
           soundEngine.play("WINNER");
           fireInstitutionalConfetti();
         }, 120);
-
-        fetchEvent();
       }
     };
 
@@ -155,7 +154,7 @@ function PresentationContent({ eventId }: { eventId: string }) {
 
     if (payload.type === "state:sync") {
       if (!isAnimatingRef.current) {
-        setState(payload.state || "IDLE");
+        if (payload.state) setState(payload.state);
         if (payload.prize) setCurrentPrize(payload.prize);
         if (payload.winner) setCurrentWinner(payload.winner);
       }
@@ -216,8 +215,14 @@ function PresentationContent({ eventId }: { eventId: string }) {
       if (typeof payload.soundEnabled === "boolean") {
         setSoundEnabled(payload.soundEnabled);
         soundEngine.setEnabled(payload.soundEnabled);
-        setAudioFeedback(payload.soundEnabled ? "Áudio dos Telões Ativado" : "Áudio dos Telões Silenciado pelo Operador");
-        setTimeout(() => setAudioFeedback(null), 3500);
+
+        if (!isInitialLoad) {
+          if (audioFeedbackTimeoutRef.current) clearTimeout(audioFeedbackTimeoutRef.current);
+          setAudioFeedback(payload.soundEnabled ? "Áudio dos Telões Ativado" : "Áudio dos Telões Silenciado pelo Operador");
+          audioFeedbackTimeoutRef.current = setTimeout(() => {
+            setAudioFeedback(null);
+          }, 2500);
+        }
       }
       if (typeof payload.volume === "number") {
         soundEngine.setVolume(payload.volume);
@@ -377,7 +382,7 @@ function PresentationContent({ eventId }: { eventId: string }) {
         <div className="flex items-center gap-3">
           {/* Audio Remote Feedback Pill */}
           {audioFeedback && (
-            <div className="hidden sm:flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 backdrop-blur-md animate-pulse">
+            <div className="hidden sm:flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 backdrop-blur-md shadow-lg transition-all duration-300">
               {soundEnabled ? <Volume2 className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5" />}
               <span>{audioFeedback}</span>
             </div>

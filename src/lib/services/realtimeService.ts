@@ -6,7 +6,7 @@ export type PresentationStageState = "IDLE" | "SHOWING_QR_CODE" | "SHOWING_EVENT
 export interface RealtimePayload {
   type: "state:sync" | "qr:show" | "logo:show" | "idle:show" | "prize:show" | "draw:start" | "draw:result" | "draw:cancel" | "audio:config";
   eventId: string;
-  state: PresentationStageState;
+  state?: PresentationStageState;
   prizeId?: string | null;
   prize?: any;
   drawId?: string | null;
@@ -68,7 +68,9 @@ class RealtimeService {
 
   public async publish(eventId: string, event: Omit<RealtimePayload, "timestamp">) {
     const channel = this.getChannel(eventId);
-    channel.state = event.state;
+    if (event.state && event.type !== "audio:config") {
+      channel.state = event.state;
+    }
     if (event.prize !== undefined) channel.currentPrize = event.prize;
     if (event.prizeId !== undefined) channel.currentPrizeId = event.prizeId;
     if (event.winner !== undefined) channel.currentWinner = event.winner;
@@ -77,6 +79,22 @@ class RealtimeService {
 
     const payload: RealtimePayload = {
       ...event,
+      state: channel.state,
+      soundEnabled: channel.soundEnabled,
+      volume: channel.volume,
+      timestamp: Date.now(),
+    };
+
+    // Snapshot to persist for background polling sync
+    const snapshotPayload: RealtimePayload = {
+      type: "state:sync",
+      eventId,
+      state: channel.state,
+      prizeId: channel.currentPrizeId,
+      prize: channel.currentPrize,
+      winner: channel.currentWinner,
+      soundEnabled: channel.soundEnabled,
+      volume: channel.volume,
       timestamp: Date.now(),
     };
 
@@ -94,12 +112,12 @@ class RealtimeService {
       await prisma.idempotencyRecord.upsert({
         where: { key: `presentation_state:${eventId}` },
         update: {
-          result: JSON.stringify(payload),
+          result: JSON.stringify(snapshotPayload),
         },
         create: {
           key: `presentation_state:${eventId}`,
           eventId,
-          result: JSON.stringify(payload),
+          result: JSON.stringify(snapshotPayload),
         },
       });
     } catch (dbErr) {

@@ -86,7 +86,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     await realtimeService.publish(eventId, {
       type,
       eventId,
-      state: state || "IDLE",
+      state: state || (type === "audio:config" ? undefined : "IDLE"),
       prizeId,
       prize,
       winner,

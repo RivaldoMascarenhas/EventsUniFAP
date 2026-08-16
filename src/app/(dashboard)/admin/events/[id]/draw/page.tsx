@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, use } from "react";
+import React, { useState, useEffect, useRef, use } from "react";
 import Link from "next/link";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/Card";
@@ -135,12 +135,27 @@ export default function OperatorDrawPage({ params }: { params: Promise<{ id: str
   const totalInRange = Math.max(0, maxRange - minRange + 1);
   const remainingInRange = Math.max(0, totalInRange - drawnInRange.length);
 
+  const supabaseChannelRef = useRef<any>(null);
+
+  useEffect(() => {
+    const supabase = getSupabaseBrowserClient();
+    if (!supabase) return;
+
+    const ch = supabase.channel(`presentation:${eventId}`);
+    ch.subscribe();
+    supabaseChannelRef.current = ch;
+
+    return () => {
+      if (supabase && ch) {
+        supabase.removeChannel(ch);
+      }
+    };
+  }, [eventId]);
+
   // Broadcast helper using Supabase Realtime WebSocket (Instant) + API (Persistent)
   const broadcastRealtime = async (payload: any) => {
-    const supabase = getSupabaseBrowserClient();
-    if (supabase) {
-      const ch = supabase.channel(`presentation:${eventId}`);
-      ch.send({
+    if (supabaseChannelRef.current) {
+      supabaseChannelRef.current.send({
         type: "broadcast",
         event: "state_change",
         payload,
