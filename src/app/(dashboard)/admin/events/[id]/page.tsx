@@ -34,6 +34,7 @@ import {
   Sparkles,
   HelpCircle,
   Share2,
+  FileDown,
   Lock,
 } from "lucide-react";
 import { formatDate, formatDateTime, formatCurrency, padNumber, maskCPF } from "@/lib/utils";
