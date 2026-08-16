@@ -734,7 +734,7 @@ export default function SingleEventPage({ params }: { params: Promise<{ id: stri
               <div>
                 <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Identidade Visual do Evento</h4>
                 <ImageUpload
-                  label="Logomarca / Capa do Evento"
+                  hideLabel
                   helperText="Esta imagem será exibida no telão quando você acionar 'Projetar Logo do Evento'."
                   folder="events"
                   value={event.logoUrl || event.coverUrl}

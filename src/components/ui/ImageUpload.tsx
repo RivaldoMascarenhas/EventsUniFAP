@@ -13,6 +13,7 @@ export interface ImageUploadProps {
   folder?: string;
   className?: string;
   helperText?: string;
+  hideLabel?: boolean;
 }
 
 export function ImageUpload({
@@ -22,6 +23,7 @@ export function ImageUpload({
   folder = "events",
   className = "",
   helperText = "Formatos recomendados: PNG, JPG ou WebP (Máx: 5MB)",
+  hideLabel = false,
 }: ImageUploadProps) {
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -68,16 +70,16 @@ export function ImageUpload({
 
   return (
     <div className={`space-y-1.5 ${className}`}>
-      {label && <label className="block text-xs font-bold uppercase text-slate-700">{label}</label>}
+      {!hideLabel && label && <label className="block text-xs font-bold uppercase text-slate-700">{label}</label>}
 
       {value ? (
-        <div className="relative group rounded-2xl overflow-hidden border-2 border-slate-200 bg-slate-50 p-2 flex items-center gap-4 transition hover:border-unifap-navy/40">
-          <div className="w-32 h-20 rounded-xl overflow-hidden bg-white border border-slate-200 flex items-center justify-center shrink-0 p-2 shadow-xs">
+        <div className="relative group rounded-2xl overflow-hidden border-2 border-slate-200 bg-slate-50 p-2.5 flex items-center gap-4 transition hover:border-unifap-navy/40">
+          <div className="w-28 h-20 rounded-xl overflow-hidden bg-white border border-slate-200 flex items-center justify-center shrink-0 p-2 shadow-xs">
             <img src={value} alt="Preview" className="max-w-full max-h-full object-contain" />
           </div>
 
           <div className="flex-1 min-w-0">
-            <div className="text-xs font-bold text-slate-800 truncate">{label || "Imagem Carregada"}</div>
+            <div className="text-xs font-bold text-slate-800 truncate">Imagem do Evento</div>
             <div className="text-[11px] text-emerald-600 font-semibold flex items-center gap-1 mt-0.5">
               <span>✓ Imagem pronta para uso</span>
             </div>
