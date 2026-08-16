@@ -790,8 +790,14 @@ export default function SingleEventPage({ params }: { params: Promise<{ id: stri
                 <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs font-mono text-slate-600 truncate mb-3">
                   {typeof window !== "undefined" ? `${window.location.origin}/public/event/${event.slug}` : ""}
                 </div>
-                <Button variant="outline" size="sm" className="w-full" onClick={copyPublicUrl}>
-                  <Copy className="w-3.5 h-3.5 mr-2" /> Copiar Link
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full"
+                  onClick={copyPublicUrl}
+                  leftIcon={<Copy className="w-3.5 h-3.5" />}
+                >
+                  Copiar Link
                 </Button>
               </CardContent>
             </Card>
