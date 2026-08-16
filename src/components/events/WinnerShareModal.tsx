@@ -67,13 +67,13 @@ export function WinnerShareModal({
   // Generate WhatsApp Text
   const generateWhatsAppText = () => {
     let text = `🎓 *CENTRO UNIVERSITÁRIO PARAÍSO — UNIFAP*\n`;
-    text += `🏆 *RESULTADOS OFICIAIS DOS SORTEIOS*\n`;
-    text += `📌 *Evento:* ${eventName}\n`;
+    text += `🏆 *RESULTADOS OFICIAIS DOS SORTEIOS*\n\n`;
+    text += `📍 *Evento:* ${eventName}\n`;
     if (eventDate) {
       text += `📅 *Data:* ${formatDate(eventDate)}\n`;
     }
     text += `━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
-    text += `🎁 *RELAÇÃO DOS GANHADORES:*\n\n`;
+    text += `🎉 *RELAÇÃO DOS GANHADORES:*\n\n`;
 
     if (winners.length === 0) {
       text += `Nenhum sorteio foi realizado ainda para este evento.\n\n`;
@@ -84,8 +84,8 @@ export function WinnerShareModal({
         const prize = w.prize?.name || "Prêmio";
         const sponsor = w.prize?.sponsor?.name;
 
-        text += `⭐ *Bilhete #${num}* — ${name}\n`;
-        text += `📦 *Prêmio:* ${prize}\n`;
+        text += `🎟️ *Bilhete #${num}* — ${name}\n`;
+        text += `🎁 *Prêmio:* ${prize}\n`;
         if (sponsor) {
           text += `🤝 *Parceria:* ${sponsor}\n`;
         }
@@ -95,7 +95,7 @@ export function WinnerShareModal({
 
     text += `━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
     text += `✨ *Parabéns a todos os contemplados!*\n`;
-    text += `🏛️ _Sistema Institucional UniFAP Sorteios_`;
+    text += `🌐 _Sistema Institucional UniFAP Sorteios • unifapce.edu.br_`;
 
     return text;
   };
