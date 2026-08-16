@@ -8,7 +8,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { loginSchema, LoginInput } from "@/lib/validations";
 import { Button } from "@/components/ui/Button";
 import { Input, Label } from "@/components/ui/Input";
-import { Lock, Mail, AlertCircle, Shield } from "lucide-react";
+import { Lock, Mail, AlertCircle, Shield, Eye, EyeOff } from "lucide-react";
 
 import { BrandLogo } from "@/components/branding/BrandLogo";
 
@@ -18,6 +18,7 @@ function LoginForm() {
   const callbackUrl = searchParams.get("callbackUrl") || "/admin/dashboard";
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const {
     register,
@@ -95,13 +96,25 @@ function LoginForm() {
 
           <div>
             <Label required>Senha de Acesso</Label>
-            <Input
-              type="password"
-              placeholder="••••••••"
-              leftIcon={<Lock className="w-4 h-4" />}
-              error={errors.password?.message}
-              {...register("password")}
-            />
+            <div className="relative">
+              <Input
+                type={showPassword ? "text" : "password"}
+                placeholder="••••••••"
+                leftIcon={<Lock className="w-4 h-4" />}
+                className="pr-10"
+                error={errors.password?.message}
+                {...register("password")}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-unifap-navy transition rounded-lg hover:bg-slate-100"
+                title={showPassword ? "Ocultar senha" : "Ver senha"}
+                tabIndex={-1}
+              >
+                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
           </div>
 
           <div className="pt-2">

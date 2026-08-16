@@ -24,6 +24,8 @@ import {
   RefreshCw,
   Mail,
   UserCheck,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 
@@ -73,6 +75,10 @@ export default function UsersManagementPage() {
     mustChangePassword: false,
   });
 
+  // Password Visibility States
+  const [showCreatePassword, setShowCreatePassword] = useState(true);
+  const [showEditPassword, setShowEditPassword] = useState(false);
+
   // Delete Modal State
   const [userToDelete, setUserToDelete] = useState<UserItem | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -105,6 +111,7 @@ export default function UsersManagementPage() {
   };
 
   const handleOpenCreateModal = () => {
+    setShowCreatePassword(true);
     setCreateForm({
       name: "",
       email: "",
@@ -141,6 +148,7 @@ export default function UsersManagementPage() {
 
   const handleOpenEditModal = (user: UserItem) => {
     setEditingUserId(user.id);
+    setShowEditPassword(false);
     setEditForm({
       name: user.name,
       email: user.email,
@@ -453,19 +461,34 @@ export default function UsersManagementPage() {
               <Label required>Senha Inicial de Acesso</Label>
               <div className="relative">
                 <Input
+                  type={showCreatePassword ? "text" : "password"}
                   value={createForm.password}
                   onChange={(e) => setCreateForm({ ...createForm, password: e.target.value })}
                   placeholder="Mínimo 6 caracteres"
+                  className="pr-20 font-mono text-sm"
                   required
                 />
-                <button
-                  type="button"
-                  onClick={() => setCreateForm({ ...createForm, password: generateRandomPassword() })}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-unifap-navy"
-                  title="Gerar nova senha segura"
-                >
-                  <RefreshCw className="w-3.5 h-3.5" />
-                </button>
+                <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
+                  <button
+                    type="button"
+                    onClick={() => setShowCreatePassword(!showCreatePassword)}
+                    className="p-1.5 text-slate-400 hover:text-unifap-navy rounded-lg hover:bg-slate-100 transition"
+                    title={showCreatePassword ? "Ocultar senha" : "Ver senha"}
+                  >
+                    {showCreatePassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCreateForm({ ...createForm, password: generateRandomPassword() });
+                      setShowCreatePassword(true);
+                    }}
+                    className="p-1.5 text-slate-400 hover:text-unifap-navy rounded-lg hover:bg-slate-100 transition"
+                    title="Gerar nova senha segura"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -556,11 +579,23 @@ export default function UsersManagementPage() {
 
             <div>
               <Label>Redefinir Senha (Opcional)</Label>
-              <Input
-                placeholder="Deixe em branco para manter"
-                value={editForm.password}
-                onChange={(e) => setEditForm({ ...editForm, password: e.target.value })}
-              />
+              <div className="relative">
+                <Input
+                  type={showEditPassword ? "text" : "password"}
+                  placeholder="Deixe em branco para manter"
+                  value={editForm.password}
+                  onChange={(e) => setEditForm({ ...editForm, password: e.target.value })}
+                  className="pr-10 font-mono text-sm"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowEditPassword(!showEditPassword)}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1.5 text-slate-400 hover:text-unifap-navy rounded-lg hover:bg-slate-100 transition"
+                  title={showEditPassword ? "Ocultar senha" : "Ver senha"}
+                >
+                  {showEditPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
             </div>
           </div>
 
