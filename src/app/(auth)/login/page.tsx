@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, Suspense } from "react";
-import Image from "next/image";
 import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
@@ -9,7 +8,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { loginSchema, LoginInput } from "@/lib/validations";
 import { Button } from "@/components/ui/Button";
 import { Input, Label } from "@/components/ui/Input";
-import { Lock, Mail, AlertCircle, Shield, KeyRound } from "lucide-react";
+import { Lock, Mail, AlertCircle, Shield } from "lucide-react";
 
 import { BrandLogo } from "@/components/branding/BrandLogo";
 
@@ -23,7 +22,6 @@ function LoginForm() {
   const {
     register,
     handleSubmit,
-    setValue,
     formState: { errors },
   } = useForm<LoginInput>({
     resolver: zodResolver(loginSchema),
@@ -55,11 +53,6 @@ function LoginForm() {
       setErrorMsg("Ocorreu um erro ao processar a autenticação. Tente novamente.");
       setIsLoading(false);
     }
-  };
-
-  const setDevCredentials = (email: string, pass: string) => {
-    setValue("email", email);
-    setValue("password", pass);
   };
 
   return (
@@ -123,48 +116,6 @@ function LoginForm() {
             </Button>
           </div>
         </form>
-
-        {/* Quick Dev Credentials Helper */}
-        <div className="mt-8 pt-6 border-t border-slate-200/80">
-          <div className="flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-3">
-            <div className="flex items-center gap-1.5">
-              <KeyRound className="w-3.5 h-3.5 text-unifap-gold" />
-              <span>Acessos de Teste (Clique para preencher):</span>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-3 gap-2">
-            <button
-              type="button"
-              onClick={() => setDevCredentials("admin@unifap.local", "Admin123!")}
-              className="text-left p-2.5 rounded-xl border border-slate-200 bg-white/70 hover:bg-white text-xs text-slate-700 transition hover:border-unifap-navy group shadow-sm"
-              title="Acesso completo ao sistema (Gerenciamento geral)"
-            >
-              <div className="font-bold text-unifap-navy group-hover:text-unifap-blue text-[11px]">👑 Admin</div>
-              <div className="text-[9px] text-slate-500 truncate">admin@unifap.local</div>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setDevCredentials("operador@unifap.local", "Operador123!")}
-              className="text-left p-2.5 rounded-xl border border-slate-200 bg-white/70 hover:bg-white text-xs text-slate-700 transition hover:border-unifap-navy group shadow-sm"
-              title="Acesso ao console de operação de sorteios"
-            >
-              <div className="font-bold text-unifap-navy group-hover:text-unifap-blue text-[11px]">🎧 Operador</div>
-              <div className="text-[9px] text-slate-500 truncate">operador@unifap.local</div>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setDevCredentials("apresentador@unifap.local", "Presenter123!")}
-              className="text-left p-2.5 rounded-xl border border-slate-200 bg-white/70 hover:bg-white text-xs text-slate-700 transition hover:border-unifap-navy group shadow-sm"
-              title="Acesso do apresentador de palco e visualização de telão"
-            >
-              <div className="font-bold text-unifap-navy group-hover:text-unifap-blue text-[11px]">📺 Apresentador</div>
-              <div className="text-[9px] text-slate-500 truncate">apresentador@...</div>
-            </button>
-          </div>
-        </div>
       </div>
 
       {/* Security Notice */}
