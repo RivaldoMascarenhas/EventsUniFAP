@@ -126,28 +126,42 @@ function LoginForm() {
 
         {/* Quick Dev Credentials Helper */}
         <div className="mt-8 pt-6 border-t border-slate-200/80">
-          <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-3">
-            <KeyRound className="w-3.5 h-3.5 text-unifap-gold" />
-            <span>Credenciais de Demonstração (Seed):</span>
+          <div className="flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-3">
+            <div className="flex items-center gap-1.5">
+              <KeyRound className="w-3.5 h-3.5 text-unifap-gold" />
+              <span>Acessos de Teste (Clique para preencher):</span>
+            </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-3 gap-2">
             <button
               type="button"
               onClick={() => setDevCredentials("admin@unifap.local", "Admin123!")}
-              className="text-left p-2.5 rounded-xl border border-slate-200 bg-white/70 hover:bg-white text-xs text-slate-700 transition hover:border-unifap-navy group"
+              className="text-left p-2.5 rounded-xl border border-slate-200 bg-white/70 hover:bg-white text-xs text-slate-700 transition hover:border-unifap-navy group shadow-sm"
+              title="Acesso completo ao sistema (Gerenciamento geral)"
             >
-              <div className="font-bold text-unifap-navy group-hover:text-unifap-blue">Admin</div>
-              <div className="text-[10px] text-slate-500">admin@unifap.local</div>
+              <div className="font-bold text-unifap-navy group-hover:text-unifap-blue text-[11px]">👑 Admin</div>
+              <div className="text-[9px] text-slate-500 truncate">admin@unifap.local</div>
             </button>
 
             <button
               type="button"
               onClick={() => setDevCredentials("operador@unifap.local", "Operador123!")}
-              className="text-left p-2.5 rounded-xl border border-slate-200 bg-white/70 hover:bg-white text-xs text-slate-700 transition hover:border-unifap-navy group"
+              className="text-left p-2.5 rounded-xl border border-slate-200 bg-white/70 hover:bg-white text-xs text-slate-700 transition hover:border-unifap-navy group shadow-sm"
+              title="Acesso ao console de operação de sorteios"
             >
-              <div className="font-bold text-unifap-navy group-hover:text-unifap-blue">Operador</div>
-              <div className="text-[10px] text-slate-500">operador@unifap.local</div>
+              <div className="font-bold text-unifap-navy group-hover:text-unifap-blue text-[11px]">🎧 Operador</div>
+              <div className="text-[9px] text-slate-500 truncate">operador@unifap.local</div>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setDevCredentials("apresentador@unifap.local", "Presenter123!")}
+              className="text-left p-2.5 rounded-xl border border-slate-200 bg-white/70 hover:bg-white text-xs text-slate-700 transition hover:border-unifap-navy group shadow-sm"
+              title="Acesso do apresentador de palco e visualização de telão"
+            >
+              <div className="font-bold text-unifap-navy group-hover:text-unifap-blue text-[11px]">📺 Apresentador</div>
+              <div className="text-[9px] text-slate-500 truncate">apresentador@...</div>
             </button>
           </div>
         </div>
