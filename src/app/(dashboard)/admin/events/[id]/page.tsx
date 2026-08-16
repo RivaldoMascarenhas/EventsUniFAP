@@ -39,6 +39,7 @@ import {
   Ban,
   CheckCircle,
   X,
+  Undo2,
 } from "lucide-react";
 import { formatDate, formatDateTime, formatCurrency, padNumber, maskCPF } from "@/lib/utils";
 import { ImageUpload } from "@/components/ui/ImageUpload";
@@ -157,9 +158,55 @@ export default function SingleEventPage({ params }: { params: Promise<{ id: stri
     status: "PENDING",
   });
 
+  // Prizes Search & Filter State
+  const [prizeSearch, setPrizeSearch] = useState("");
+  const [prizeStatusFilter, setPrizeStatusFilter] = useState<"ALL" | "AVAILABLE" | "DRAWN">("ALL");
+
   // Results State
   const [results, setResults] = useState<any[]>([]);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+
+  // Cancel Draw State
+  const [drawToCancel, setDrawToCancel] = useState<any | null>(null);
+  const [isCancelDrawModalOpen, setIsCancelDrawModalOpen] = useState(false);
+  const [cancelDrawReason, setCancelDrawReason] = useState("");
+  const [cancelDrawMarkIneligible, setCancelDrawMarkIneligible] = useState(false);
+  const [isCancellingDraw, setIsCancellingDraw] = useState(false);
+
+  const handleConfirmCancelDraw = async () => {
+    if (!drawToCancel) return;
+    try {
+      setIsCancellingDraw(true);
+      const res = await fetch(`/api/events/${id}/draws/${drawToCancel.id}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          reason: cancelDrawReason || "Anulado pelo operador na ata de resultados",
+          markIneligible: cancelDrawMarkIneligible,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Erro ao anular sorteio");
+
+      success(
+        "Sorteio Anulado",
+        `O prêmio "${drawToCancel.prize?.name || 'do sorteio'}" voltou a ficar DISPONÍVEL para novo sorteio.`
+      );
+      setIsCancelDrawModalOpen(false);
+      setDrawToCancel(null);
+      setCancelDrawReason("");
+      setCancelDrawMarkIneligible(false);
+
+      // Refresh data
+      fetchEventData(true);
+      fetchParticipants();
+    } catch (err: any) {
+      error("Erro ao anular", err.message);
+    } finally {
+      setIsCancellingDraw(false);
+    }
+  };
 
   // Edit Event State
   const [isEditEventModalOpen, setIsEditEventModalOpen] = useState(false);
@@ -927,10 +974,15 @@ export default function SingleEventPage({ params }: { params: Promise<{ id: stri
       {/* Tab: Prizes */}
       {activeTab === "prizes" && (
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-bold text-unifap-navy uppercase tracking-wider">
-              Prêmios Cadastrados para este Evento
-            </h3>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <h3 className="text-sm font-bold text-unifap-navy uppercase tracking-wider">
+                Prêmios Cadastrados para este Evento
+              </h3>
+              <div className="text-xs text-slate-500 mt-0.5">
+                Gerencie todos os prêmios, patrocinadores e ordem de sorteio.
+              </div>
+            </div>
             {!isPresenter && (
               <Button
                 variant="primary"
@@ -942,86 +994,208 @@ export default function SingleEventPage({ params }: { params: Promise<{ id: stri
             )}
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {event.prizes.map((prize: any) => {
-              const isFinalized = prize.status === "DRAWN" || prize.status === "FINISHED";
-              const canEdit = isAdmin || (!isFinalized && isOperator);
-              const canDelete = isAdmin || (!isFinalized && isOperator);
+          {/* Smart Search & Status Filters */}
+          <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-sm flex flex-col md:flex-row items-center justify-between gap-3">
+            {/* Search Input */}
+            <div className="relative w-full md:max-w-md">
+              <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+              <input
+                type="text"
+                placeholder="Buscar por nome, patrocinador, descrição ou #..."
+                value={prizeSearch}
+                onChange={(e) => setPrizeSearch(e.target.value)}
+                className="w-full pl-10 pr-8 py-2 rounded-xl border border-slate-200 bg-slate-50 text-xs text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-unifap-navy/20 focus:border-unifap-navy transition"
+              />
+              {prizeSearch && (
+                <button
+                  type="button"
+                  onClick={() => setPrizeSearch("")}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
 
-              return (
-                <Card key={prize.id} className="flex flex-col justify-between hover:border-unifap-blue/40">
-                  <CardContent className="p-6">
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="w-7 h-7 rounded-lg bg-unifap-navy text-white text-xs font-bold flex items-center justify-center">
-                        #{prize.order}
-                      </span>
-                      <StatusBadge status={prize.status} />
-                    </div>
+            {/* Filter Pills */}
+            <div className="flex items-center gap-1.5 w-full md:w-auto overflow-x-auto pb-1 md:pb-0">
+              <button
+                type="button"
+                onClick={() => setPrizeStatusFilter("ALL")}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shrink-0 ${
+                  prizeStatusFilter === "ALL"
+                    ? "bg-unifap-navy text-white shadow-sm"
+                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                }`}
+              >
+                <span>Todos</span>
+                <span className="text-[10px] px-1.5 py-0.2 rounded-md bg-white/20">
+                  {event.prizes?.length || 0}
+                </span>
+              </button>
 
-                    <h4 className="text-base font-bold text-unifap-navy line-clamp-1">{prize.name}</h4>
-                    <p className="text-xs text-slate-500 mt-1 line-clamp-2 leading-relaxed">
-                      {prize.description || "Sem descrição."}
-                    </p>
+              <button
+                type="button"
+                onClick={() => setPrizeStatusFilter("AVAILABLE")}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shrink-0 ${
+                  prizeStatusFilter === "AVAILABLE"
+                    ? "bg-emerald-600 text-white shadow-sm"
+                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                }`}
+              >
+                <span>Disponíveis</span>
+                <span className="text-[10px] px-1.5 py-0.2 rounded-md bg-white/20">
+                  {(event.prizes || []).filter((p: any) => p.status === "AVAILABLE").length}
+                </span>
+              </button>
 
-                    {/* Sponsor highlight */}
-                    <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
-                      <div>
-                        <div className="text-[10px] uppercase font-bold text-slate-400">Patrocínio</div>
-                        <div className="text-xs font-bold text-unifap-navy">
-                          {prize.sponsor?.name || "UniFAP"}
-                        </div>
-                      </div>
-                      {prize.estimatedValue && (
-                        <div className="text-right">
-                          <div className="text-[10px] uppercase font-bold text-slate-400">Valor Estimado</div>
-                          <div className="text-xs font-bold text-emerald-600">
-                            {formatCurrency(prize.estimatedValue)}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Actions */}
-                    {!isPresenter && (
-                      <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
-                        {canEdit ? (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="flex-1 text-xs"
-                            onClick={() => handleOpenEditPrize(prize)}
-                            leftIcon={<Edit className="w-3.5 h-3.5" />}
-                          >
-                            Editar
-                          </Button>
-                        ) : (
-                          <div
-                            className="flex-1 py-1.5 px-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-400 text-[11px] font-semibold flex items-center justify-center gap-1.5 select-none"
-                            title="Prêmio já finalizado. Apenas administradores têm permissão para editar."
-                          >
-                            <Lock className="w-3.5 h-3.5 text-slate-400" />
-                            <span>Restrito ao Admin</span>
-                          </div>
-                        )}
-
-                        {canDelete && (
-                          <Button
-                            variant="danger"
-                            size="sm"
-                            className="px-3 bg-rose-50 text-rose-600 hover:bg-rose-100 hover:text-rose-700 border border-rose-200"
-                            title={isFinalized ? "Excluir Prêmio Finalizado (Ação Admin)" : "Excluir Prêmio"}
-                            onClick={() => setPrizeToDelete(prize)}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        )}
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              );
-            })}
+              <button
+                type="button"
+                onClick={() => setPrizeStatusFilter("DRAWN")}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shrink-0 ${
+                  prizeStatusFilter === "DRAWN"
+                    ? "bg-amber-500 text-slate-950 font-black shadow-sm"
+                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                }`}
+              >
+                <span>Sorteados</span>
+                <span className="text-[10px] px-1.5 py-0.2 rounded-md bg-black/10">
+                  {(event.prizes || []).filter((p: any) => p.status === "DRAWN" || p.status === "FINISHED").length}
+                </span>
+              </button>
+            </div>
           </div>
+
+          {/* Prizes Grid */}
+          {(() => {
+            const filteredPrizes = (event?.prizes || []).filter((p: any) => {
+              const matchesStatus =
+                prizeStatusFilter === "ALL" ||
+                (prizeStatusFilter === "AVAILABLE" && p.status === "AVAILABLE") ||
+                (prizeStatusFilter === "DRAWN" && (p.status === "DRAWN" || p.status === "FINISHED"));
+
+              if (!matchesStatus) return false;
+
+              if (!prizeSearch.trim()) return true;
+              const q = prizeSearch.toLowerCase().trim();
+              const orderMatch = `#${p.order}`.toLowerCase().includes(q) || String(p.order) === q;
+              const nameMatch = p.name?.toLowerCase().includes(q);
+              const sponsorMatch = p.sponsor?.name?.toLowerCase().includes(q);
+              const descMatch = p.description?.toLowerCase().includes(q);
+              return Boolean(orderMatch || nameMatch || sponsorMatch || descMatch);
+            });
+
+            if (filteredPrizes.length === 0) {
+              return (
+                <div className="p-8 rounded-2xl bg-white border border-slate-200 text-center space-y-3">
+                  <div className="w-12 h-12 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mx-auto">
+                    <Gift className="w-6 h-6" />
+                  </div>
+                  <div className="text-sm font-bold text-slate-700">Nenhum prêmio encontrado</div>
+                  <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                    {prizeSearch
+                      ? `Não encontramos nenhum prêmio correspondente a "${prizeSearch}".`
+                      : "Nenhum prêmio cadastrado nesta categoria de status."}
+                  </p>
+                  {(prizeSearch || prizeStatusFilter !== "ALL") && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setPrizeSearch("");
+                        setPrizeStatusFilter("ALL");
+                      }}
+                    >
+                      Limpar Filtros
+                    </Button>
+                  )}
+                </div>
+              );
+            }
+
+            return (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {filteredPrizes.map((prize: any) => {
+                  const isFinalized = prize.status === "DRAWN" || prize.status === "FINISHED";
+                  const canEdit = isAdmin || (!isFinalized && isOperator);
+                  const canDelete = isAdmin || (!isFinalized && isOperator);
+
+                  return (
+                    <Card key={prize.id} className="flex flex-col justify-between hover:border-unifap-blue/40">
+                      <CardContent className="p-6">
+                        <div className="flex items-center justify-between mb-3">
+                          <span className="w-7 h-7 rounded-lg bg-unifap-navy text-white text-xs font-bold flex items-center justify-center">
+                            #{prize.order}
+                          </span>
+                          <StatusBadge status={prize.status} />
+                        </div>
+
+                        <h4 className="text-base font-bold text-unifap-navy line-clamp-1">{prize.name}</h4>
+                        <p className="text-xs text-slate-500 mt-1 line-clamp-2 leading-relaxed">
+                          {prize.description || "Sem descrição."}
+                        </p>
+
+                        {/* Sponsor highlight */}
+                        <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
+                          <div>
+                            <div className="text-[10px] uppercase font-bold text-slate-400">Patrocínio</div>
+                            <div className="text-xs font-bold text-unifap-navy">
+                              {prize.sponsor?.name || "UniFAP"}
+                            </div>
+                          </div>
+                          {prize.estimatedValue && (
+                            <div className="text-right">
+                              <div className="text-[10px] uppercase font-bold text-slate-400">Valor Estimado</div>
+                              <div className="text-xs font-bold text-emerald-600">
+                                {formatCurrency(prize.estimatedValue)}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Actions */}
+                        {!isPresenter && (
+                          <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
+                            {canEdit ? (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="flex-1 text-xs"
+                                onClick={() => handleOpenEditPrize(prize)}
+                                leftIcon={<Edit className="w-3.5 h-3.5" />}
+                              >
+                                Editar
+                              </Button>
+                            ) : (
+                              <div
+                                className="flex-1 py-1.5 px-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-400 text-[11px] font-semibold flex items-center justify-center gap-1.5 select-none"
+                                title="Prêmio já finalizado. Apenas administradores têm permissão para editar."
+                              >
+                                <Lock className="w-3.5 h-3.5 text-slate-400" />
+                                <span>Restrito ao Admin</span>
+                              </div>
+                            )}
+
+                            {canDelete && (
+                              <Button
+                                variant="danger"
+                                size="sm"
+                                className="px-3 bg-rose-50 text-rose-600 hover:bg-rose-100 hover:text-rose-700 border border-rose-200"
+                                title={isFinalized ? "Excluir Prêmio Finalizado (Ação Admin)" : "Excluir Prêmio"}
+                                onClick={() => setPrizeToDelete(prize)}
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            )}
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            );
+          })()}
         </div>
       )}
 
@@ -1136,12 +1310,13 @@ export default function SingleEventPage({ params }: { params: Promise<{ id: stri
                     <th className="py-3 px-4">Prêmio Conquistado</th>
                     <th className="py-3 px-4">Patrocinador</th>
                     <th className="py-3 px-4 text-right">Data / Hora</th>
+                    <th className="py-3 px-4 text-center">Ações</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-xs text-slate-700">
                   {results.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="py-8 text-center text-slate-400">
+                      <td colSpan={6} className="py-8 text-center text-slate-400">
                         Nenhum sorteio registrado ainda para este evento.
                       </td>
                     </tr>
@@ -1163,6 +1338,22 @@ export default function SingleEventPage({ params }: { params: Promise<{ id: stri
                         </td>
                         <td className="py-3 px-4 text-right text-slate-500">
                           {formatDateTime(d.timestamp)}
+                        </td>
+                        <td className="py-3 px-4 text-center">
+                          {!isPresenter && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setDrawToCancel(d);
+                                setIsCancelDrawModalOpen(true);
+                              }}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 text-[11px] font-bold transition shadow-sm"
+                              title="Anular este sorteio e devolver o prêmio para a lista de disponíveis"
+                            >
+                              <Undo2 className="w-3 h-3" />
+                              <span>Anular</span>
+                            </button>
+                          )}
                         </td>
                       </tr>
                     ))
@@ -1967,6 +2158,79 @@ Pedro Henrique Valença,202310103,08434567890,Fisioterapia,pedro@aluno.unifapce.
               leftIcon={<Trash2 className="w-4 h-4" />}
             >
               Sim, Limpar Lista de Inscritos
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Modal: Confirm Cancel Draw */}
+      <Modal
+        isOpen={isCancelDrawModalOpen}
+        onClose={() => !isCancellingDraw && setIsCancelDrawModalOpen(false)}
+        title="Anular Sorteio e Devolver Prêmio"
+        description="Esta ação cancelará o registro do sorteio selecionado e liberará o prêmio para um novo sorteio."
+      >
+        <div className="space-y-4">
+          <div className="p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-950 space-y-2 text-xs">
+            <div className="flex items-center gap-2 text-rose-900 font-bold text-sm">
+              <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+              <span>Atenção: Ação de Anulação</span>
+            </div>
+            <p className="leading-relaxed">
+              O prêmio <strong>&quot;{drawToCancel?.prize?.name}&quot;</strong> voltará para o status <strong>DISPONÍVEL</strong> e poderá ser sorteado novamente na roleta do operador.
+            </p>
+            {drawToCancel?.winnerParticipant?.name && (
+              <div className="font-bold text-rose-800">
+                Ganhador desclassificado: #{padNumber(drawToCancel.drawnNumber || drawToCancel.winnerParticipant.ticketNumber, 3)} - {drawToCancel.winnerParticipant.name}
+              </div>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-700 mb-1.5">
+              Motivo da Anulação (Opcional):
+            </label>
+            <input
+              type="text"
+              placeholder="Ex: Ausente no auditório / Desclassificado por regulamento"
+              value={cancelDrawReason}
+              onChange={(e) => setCancelDrawReason(e.target.value)}
+              className="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition"
+            />
+          </div>
+
+          <label className="flex items-start gap-2.5 p-3 rounded-xl bg-slate-50 border border-slate-200 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={cancelDrawMarkIneligible}
+              onChange={(e) => setCancelDrawMarkIneligible(e.target.checked)}
+              className="mt-0.5 w-4 h-4 rounded text-rose-600 border-slate-300 focus:ring-rose-500"
+            />
+            <div className="text-xs">
+              <span className="font-bold text-slate-800">Marcar este participante como Inelegível</span>
+              <p className="text-slate-500 text-[11px] mt-0.5">
+                Impede que este mesmo participante seja sorteado novamente nas próximas rodadas deste evento.
+              </p>
+            </div>
+          </label>
+
+          <div className="flex items-center justify-end gap-3 pt-2">
+            <Button
+              variant="outline"
+              size="md"
+              onClick={() => setIsCancelDrawModalOpen(false)}
+              disabled={isCancellingDraw}
+            >
+              Manter Sorteio
+            </Button>
+            <Button
+              variant="danger"
+              size="md"
+              onClick={handleConfirmCancelDraw}
+              isLoading={isCancellingDraw}
+              leftIcon={<Undo2 className="w-4 h-4" />}
+            >
+              Sim, Anular e Devolver Prêmio
             </Button>
           </div>
         </div>

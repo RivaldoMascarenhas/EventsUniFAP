@@ -359,9 +359,14 @@ export class LotteryService {
   }
 
   /**
-   * Resets/cancels a completed draw if needed with audit trail
+   * Resets/cancels a completed draw if needed with audit trail, returning the prize to AVAILABLE pool
    */
-  public static async cancelDraw(drawId: string, operatorId?: string, reason?: string) {
+  public static async cancelDraw(
+    drawId: string,
+    operatorId?: string,
+    reason?: string,
+    markIneligible?: boolean
+  ) {
     return await prisma.$transaction(async (tx) => {
       const draw = await tx.draw.findUnique({
         where: { id: drawId },
@@ -372,19 +377,19 @@ export class LotteryService {
         throw new Error("Sorteio não encontrado.");
       }
 
-      // Mark draw as cancelled
+      // 1. Mark draw as cancelled
       await tx.draw.update({
         where: { id: drawId },
         data: { status: "CANCELLED", notes: reason ? `Cancelado: ${reason}` : "Cancelado pelo operador" },
       });
 
-      // Re-enable prize
+      // 2. Re-enable prize so it can be drawn again
       await tx.prize.update({
         where: { id: draw.prizeId },
         data: { status: PrizeStatus.AVAILABLE },
       });
 
-      // Check if participant has other active wins
+      // 3. Check if participant has other active wins
       const otherWins = await tx.winner.count({
         where: {
           participantId: draw.winnerParticipantId,
@@ -392,19 +397,21 @@ export class LotteryService {
         },
       });
 
-      if (otherWins === 0) {
-        await tx.participant.update({
-          where: { id: draw.winnerParticipantId },
-          data: { isWinner: false },
-        });
-      }
+      // 4. Update participant winner / eligibility status
+      await tx.participant.update({
+        where: { id: draw.winnerParticipantId },
+        data: {
+          ...(otherWins === 0 ? { isWinner: false } : {}),
+          ...(markIneligible ? { isEligible: false } : {}),
+        },
+      });
 
-      // Delete winner record
+      // 5. Delete winner record
       await tx.winner.deleteMany({
         where: { drawId },
       });
 
-      // Log cancellation audit
+      // 6. Log cancellation audit
       await tx.auditLog.create({
         data: {
           userId: operatorId || undefined,
@@ -413,21 +420,29 @@ export class LotteryService {
           entityId: drawId,
           metadata: JSON.stringify({
             prizeId: draw.prizeId,
-            prizeName: draw.prize.name,
+            prizeName: draw.prize?.name,
             participantId: draw.winnerParticipantId,
-            participantName: draw.winnerParticipant.name,
+            participantName: draw.winnerParticipant?.name,
             reason,
+            markIneligible: Boolean(markIneligible),
           }),
         },
       });
 
+      // 7. Publish realtime event to presentation screens
       realtimeService.publish(draw.eventId, {
         type: "draw:cancel",
         eventId: draw.eventId,
         state: "IDLE",
       });
 
-      return { success: true };
+      return {
+        success: true,
+        prizeId: draw.prizeId,
+        prizeName: draw.prize?.name,
+        participantId: draw.winnerParticipantId,
+        participantName: draw.winnerParticipant?.name,
+      };
     });
   }
 }

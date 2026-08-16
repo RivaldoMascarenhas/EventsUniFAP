@@ -29,6 +29,9 @@ import {
   Hash,
   ImageIcon,
   Share2,
+  Search,
+  X,
+  Undo2,
 } from "lucide-react";
 import { padNumber, formatDateTime } from "@/lib/utils";
 import { motion } from "framer-motion";
@@ -75,6 +78,15 @@ export default function OperatorDrawPage({ params }: { params: Promise<{ id: str
       // Ignore localStorage restrictions
     }
   }, [eventId]);
+
+  // Prize search filter
+  const [prizeSearch, setPrizeSearch] = useState("");
+
+  // Cancel Draw State
+  const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
+  const [cancelReason, setCancelReason] = useState("");
+  const [cancelMarkIneligible, setCancelMarkIneligible] = useState(false);
+  const [isCancellingDraw, setIsCancellingDraw] = useState(false);
 
   const [isLoading, setIsLoading] = useState(true);
   const [isDrawing, setIsDrawing] = useState(false);
@@ -162,6 +174,59 @@ export default function OperatorDrawPage({ params }: { params: Promise<{ id: str
   };
 
   const selectedPrize = prizes.find((p) => p.id === selectedPrizeId);
+
+  // Filter prizes by search term
+  const filteredPrizes = prizes.filter((p) => {
+    if (!prizeSearch.trim()) return true;
+    const q = prizeSearch.toLowerCase().trim();
+    const orderMatch = `#${p.order}`.toLowerCase().includes(q) || String(p.order) === q;
+    const nameMatch = p.name?.toLowerCase().includes(q);
+    const sponsorMatch = p.sponsor?.name?.toLowerCase().includes(q);
+    const descMatch = p.description?.toLowerCase().includes(q);
+    return Boolean(orderMatch || nameMatch || sponsorMatch || descMatch);
+  });
+
+  // Cancel latest draw and free prize back to AVAILABLE status
+  const handleCancelLatestDraw = async () => {
+    if (!latestWinner) return;
+    const drawId = latestWinner.drawId || latestWinner.id;
+    if (!drawId) {
+      error("Erro", "Identificador do sorteio não encontrado.");
+      return;
+    }
+
+    try {
+      setIsCancellingDraw(true);
+      const res = await fetch(`/api/events/${eventId}/draws/${drawId}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          reason: cancelReason || "Anulado pelo operador no palco",
+          markIneligible: cancelMarkIneligible,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Erro ao anular sorteio");
+
+      success(
+        "Sorteio Anulado!",
+        `O prêmio "${latestWinner.prize?.name || 'do sorteio'}" voltou a ficar DISPONÍVEL na roleta.`
+      );
+
+      setIsCancelModalOpen(false);
+      setLatestWinner(null);
+      setCancelReason("");
+      setCancelMarkIneligible(false);
+
+      // Re-fetch event data silently to update prizes and draws list
+      await fetchEventData(true);
+    } catch (err: any) {
+      error("Erro ao anular", err.message);
+    } finally {
+      setIsCancellingDraw(false);
+    }
+  };
 
   // Calculate already drawn numbers in this event
   const alreadyDrawnNumbers: number[] = (event?.draws || [])
@@ -499,16 +564,57 @@ export default function OperatorDrawPage({ params }: { params: Promise<{ id: str
           <CardContent className="space-y-5">
             {/* Prize Selector */}
             <div>
-              <label className="block text-xs font-bold uppercase text-slate-600 mb-2">
-                1. Selecione o Prêmio
-              </label>
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-xs font-bold uppercase text-slate-600">
+                  1. Selecione o Prêmio
+                </label>
+                {prizes.length > 0 && (
+                  <span className="text-[11px] font-bold text-slate-400">
+                    {filteredPrizes.length} de {prizes.length} disp.
+                  </span>
+                )}
+              </div>
+
+              {prizes.length > 3 && (
+                <div className="relative mb-2">
+                  <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                  <input
+                    type="text"
+                    value={prizeSearch}
+                    onChange={(e) => setPrizeSearch(e.target.value)}
+                    placeholder="Buscar prêmio, patrocinador ou #..."
+                    className="w-full pl-8 pr-7 py-1.5 rounded-xl border border-slate-200 bg-slate-50 text-xs text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-unifap-navy/20 focus:border-unifap-navy transition"
+                  />
+                  {prizeSearch && (
+                    <button
+                      type="button"
+                      onClick={() => setPrizeSearch("")}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+              )}
+
               {prizes.length === 0 ? (
-                <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs font-medium">
-                  Todos os prêmios deste evento já foram sorteados!
+                <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs font-medium text-center">
+                  🏆 Todos os prêmios deste evento já foram sorteados!
+                </div>
+              ) : filteredPrizes.length === 0 ? (
+                <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 text-slate-500 text-xs text-center space-y-1.5">
+                  <div>Nenhum prêmio encontrado para <strong>&quot;{prizeSearch}&quot;</strong>.</div>
+                  <button
+                    type="button"
+                    onClick={() => setPrizeSearch("")}
+                    className="text-xs font-bold text-unifap-navy hover:underline"
+                  >
+                    Limpar busca
+                  </button>
                 </div>
               ) : (
-                <div className="space-y-2 max-h-52 overflow-y-auto">
-                  {prizes.map((p) => (
+                <div className="space-y-2 max-h-56 overflow-y-auto pr-0.5">
+                  {filteredPrizes.map((p) => (
                     <div
                       key={p.id}
                       onClick={() => !isDrawing && handleSelectPrize(p)}
@@ -719,6 +825,19 @@ export default function OperatorDrawPage({ params }: { params: Promise<{ id: str
                       {latestWinner.winner.category} {latestWinner.winner.registration ? `• Matrícula: ${latestWinner.winner.registration}` : ""}
                     </div>
                   )}
+
+                  {/* Cancel / Invalidate Draw Button */}
+                  <div className="pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setIsCancelModalOpen(true)}
+                      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-rose-500/20 hover:bg-rose-500/35 text-rose-200 border border-rose-400/30 text-xs font-bold transition shadow-sm"
+                      title="Anular este sorteio e devolver o prêmio à lista de prêmios disponíveis para ser sorteado novamente"
+                    >
+                      <Undo2 className="w-3.5 h-3.5" />
+                      <span>Anular Sorteio (Liberar Prêmio)</span>
+                    </button>
+                  </div>
                 </motion.div>
               ) : (
                 <div className="space-y-3">
@@ -926,6 +1045,79 @@ export default function OperatorDrawPage({ params }: { params: Promise<{ id: str
           winners={event.draws || []}
         />
       )}
+
+      {/* Modal: Confirm Cancel Draw */}
+      <Modal
+        isOpen={isCancelModalOpen}
+        onClose={() => !isCancellingDraw && setIsCancelModalOpen(false)}
+        title="Anular Sorteio e Devolver Prêmio"
+        description="Esta ação cancelará o sorteio atual e retornará o prêmio imediatamente para o status Disponível na roleta."
+      >
+        <div className="space-y-4">
+          <div className="p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-950 space-y-2 text-xs">
+            <div className="flex items-center gap-2 text-rose-900 font-bold text-sm">
+              <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+              <span>Atenção: Ação de Anulação</span>
+            </div>
+            <p className="leading-relaxed">
+              O prêmio <strong>&quot;{latestWinner?.prize?.name}&quot;</strong> será devolvido à lista de prêmios disponíveis e poderá ser sorteado novamente para outro participante.
+            </p>
+            {latestWinner?.winner?.name && (
+              <div className="font-bold text-rose-800">
+                Ganhador a ser desclassificado: #{padNumber(latestWinner?.drawnNumber, 3)} - {latestWinner?.winner?.name}
+              </div>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-700 mb-1.5">
+              Motivo da Anulação (Opcional):
+            </label>
+            <input
+              type="text"
+              placeholder="Ex: Participante ausente no auditório / Desclassificado por regras"
+              value={cancelReason}
+              onChange={(e) => setCancelReason(e.target.value)}
+              className="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition"
+            />
+          </div>
+
+          <label className="flex items-start gap-2.5 p-3 rounded-xl bg-slate-50 border border-slate-200 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={cancelMarkIneligible}
+              onChange={(e) => setCancelMarkIneligible(e.target.checked)}
+              className="mt-0.5 w-4 h-4 rounded text-rose-600 border-slate-300 focus:ring-rose-500"
+            />
+            <div className="text-xs">
+              <span className="font-bold text-slate-800">Marcar este participante como Inelegível</span>
+              <p className="text-slate-500 text-[11px] mt-0.5">
+                Impede que este mesmo participante seja sorteado novamente nas próximas rodadas deste evento.
+              </p>
+            </div>
+          </label>
+
+          <div className="flex items-center justify-end gap-3 pt-2">
+            <Button
+              variant="outline"
+              size="md"
+              onClick={() => setIsCancelModalOpen(false)}
+              disabled={isCancellingDraw}
+            >
+              Manter Sorteio
+            </Button>
+            <Button
+              variant="danger"
+              size="md"
+              onClick={handleCancelLatestDraw}
+              isLoading={isCancellingDraw}
+              leftIcon={<Undo2 className="w-4 h-4" />}
+            >
+              Sim, Anular e Devolver Prêmio
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }
