@@ -311,7 +311,7 @@ export default function AdminDashboardPage() {
 
                     <div className="flex items-center gap-2 mt-4">
                       <Link href={`/admin/events/${ev.id}`} className="flex-1">
-                        <Button variant="outline" size="sm" className="w-full text-xs">
+                        <Button variant="outline" size="sm" className="w-full text-xs font-semibold">
                           {isPresenter ? "Ver Detalhes" : "Gerenciar"}
                         </Button>
                       </Link>
@@ -325,10 +325,20 @@ export default function AdminDashboardPage() {
                       )}
 
                       <Link href={`/presentation/${ev.id}`} target="_blank" className={isPresenter ? "flex-1" : undefined}>
-                        <Button variant={isPresenter ? "primary" : "secondary"} size="sm" className={isPresenter ? "w-full text-xs" : "px-2.5"} title="Abrir Telão 4K">
-                          <Tv className="w-4 h-4" />
-                          {isPresenter && <span className="ml-1.5 font-bold">Telão 4K</span>}
-                        </Button>
+                        {isPresenter ? (
+                          <Button
+                            variant="primary"
+                            size="sm"
+                            className="w-full text-xs font-bold bg-unifap-navy hover:bg-unifap-blue"
+                            leftIcon={<Tv className="w-3.5 h-3.5 text-unifap-gold" />}
+                          >
+                            Abrir Telão 4K
+                          </Button>
+                        ) : (
+                          <Button variant="secondary" size="sm" className="px-2.5" title="Abrir Telão 4K">
+                            <Tv className="w-4 h-4 text-unifap-navy" />
+                          </Button>
+                        )}
                       </Link>
 
                       {isAdmin && (
