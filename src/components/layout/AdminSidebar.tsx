@@ -57,13 +57,13 @@ export function AdminSidebar() {
   };
 
   return (
-    <aside className="w-64 bg-unifap-navy text-white flex flex-col shrink-0 h-screen sticky top-0 border-r border-unifap-blue/40 select-none shadow-xl z-20">
+    <aside className="w-64 bg-unifap-navy text-white flex flex-col shrink-0 min-h-screen border-r border-unifap-blue/40 select-none shadow-xl z-20">
       {/* Brand Header */}
-      <div className="p-5 border-b border-white/10 flex flex-col gap-2 shrink-0">
+      <div className="p-5 border-b border-white/10 flex flex-col gap-2">
         <Link href="/admin/dashboard" className="flex flex-col gap-2 group transition opacity-95 hover:opacity-100">
           <div className="flex items-center justify-between gap-2">
             <BrandLogo variant="white" width={170} height={42} priority className="h-7 w-auto" />
-            <span className="text-[10px] uppercase font-black tracking-wider px-2.5 py-0.5 rounded-full bg-unifap-gold text-slate-950 shadow-md shadow-amber-500/20 shrink-0 translate-x-3.5 z-30">
+            <span className="text-[10px] uppercase font-black tracking-wider px-2 py-0.5 rounded-full bg-unifap-gold text-slate-950 shadow-sm">
               Sorteios
             </span>
           </div>
@@ -74,7 +74,7 @@ export function AdminSidebar() {
       </div>
 
       {/* Navigation Links */}
-      <nav className="flex-1 p-4 space-y-1 overflow-y-auto scrollbar-sidebar">
+      <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
         <div className="text-[10px] uppercase font-bold text-blue-300/60 px-3 mb-2 tracking-wider">
           Menu Principal
         </div>
@@ -107,7 +107,7 @@ export function AdminSidebar() {
       </nav>
 
       {/* User Session & Logout */}
-      <div className="p-4 border-t border-unifap-blue/40 bg-unifap-dark/50 shrink-0 mt-auto">
+      <div className="p-4 border-t border-unifap-blue/40 bg-unifap-dark/50">
         <div className="flex items-center gap-3 mb-3 px-2">
           <div className="w-8 h-8 rounded-full bg-unifap-gold/20 border border-unifap-gold/50 flex items-center justify-center text-unifap-gold text-xs font-bold shrink-0">
             {session?.user?.name ? session.user.name.charAt(0).toUpperCase() : "U"}
@@ -122,7 +122,7 @@ export function AdminSidebar() {
           onClick={handleLogout}
           disabled={isLoggingOut}
           className={cn(
-            "w-full flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all duration-200 border group cursor-pointer",
+            "w-full flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all duration-200 border group",
             isLoggingOut
               ? "bg-rose-950/70 text-rose-200 border-rose-800/80 cursor-wait shadow-inner"
               : "text-rose-300 bg-rose-950/20 hover:bg-rose-950/60 hover:text-rose-100 border-rose-900/40 hover:border-rose-800/80 active:scale-[0.98]"

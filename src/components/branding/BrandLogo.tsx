@@ -84,7 +84,7 @@ export function BrandLogo({
         onError={() => {
           setHasError(true);
         }}
-        className={cn("object-contain", className ? className : current.aspect)}
+        className={current.aspect}
       />
     </div>
   );
