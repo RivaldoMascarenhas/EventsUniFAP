@@ -9,6 +9,11 @@ import { AuditAction } from "@/lib/types/enums";
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session || (session.user.role !== "ADMIN" && session.user.role !== "OPERATOR")) {
+      return NextResponse.json({ error: "Acesso restrito a administradores e operadores" }, { status: 403 });
+    }
+
     const { id: eventId } = await params;
     const { searchParams } = new URL(req.url);
 

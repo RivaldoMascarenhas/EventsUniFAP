@@ -50,7 +50,25 @@ export class StorageService {
     subFolder: string = "general",
     mimeType?: string
   ): Promise<SaveFileResult> {
-    const ext = path.extname(originalName) || ".png";
+    const ext = (path.extname(originalName) || ".png").toLowerCase();
+
+    // Prevent Stored XSS in SVG uploads
+    if (ext === ".svg" || mimeType === "image/svg+xml") {
+      const content = buffer.toString("utf-8").toLowerCase();
+      if (
+        content.includes("<script") ||
+        content.includes("javascript:") ||
+        content.includes("onload=") ||
+        content.includes("onerror=") ||
+        content.includes("onclick=") ||
+        content.includes("xlink:href") ||
+        content.includes("<foreignobject")
+      ) {
+        throw new Error("O arquivo SVG contém scripts ou elementos potencialmente perigosos e foi bloqueado por segurança.");
+      }
+    }
+
+    const cleanSubFolder = subFolder.replace(/[^a-zA-Z0-9_-]/g, "") || "general";
     const cleanBase = path
       .basename(originalName, ext)
       .toLowerCase()
@@ -62,7 +80,7 @@ export class StorageService {
     // 1. Supabase Storage Provider
     if (supabase) {
       const bucketName = process.env.SUPABASE_STORAGE_BUCKET || "sorteios";
-      const storagePath = `${subFolder}/${uniqueName}`;
+      const storagePath = `${cleanSubFolder}/${uniqueName}`;
 
       const { data, error } = await supabase.storage.from(bucketName).upload(storagePath, buffer, {
         contentType: mimeType || (ext === ".svg" ? "image/svg+xml" : ext === ".webp" ? "image/webp" : ext === ".png" ? "image/png" : "image/jpeg"),

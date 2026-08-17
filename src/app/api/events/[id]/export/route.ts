@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { ExportService, WinnerExportItem, ParticipantExportItem } from "@/lib/services/exportService";
 
@@ -6,6 +8,11 @@ export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session || (session.user.role !== "ADMIN" && session.user.role !== "OPERATOR")) {
+      return NextResponse.json({ error: "Acesso restrito a administradores e operadores" }, { status: 403 });
+    }
+
     const { id: eventId } = await params;
     const { searchParams } = new URL(req.url);
     const format = searchParams.get("format") || "xlsx";

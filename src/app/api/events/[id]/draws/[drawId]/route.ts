@@ -5,6 +5,13 @@ import { LotteryService } from "@/lib/services/lotteryService";
 
 export const dynamic = "force-dynamic";
 
+import { z } from "zod";
+
+const cancelDrawBodySchema = z.object({
+  reason: z.string().optional(),
+  markIneligible: z.boolean().optional(),
+});
+
 export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ id: string; drawId: string }> }
@@ -21,9 +28,10 @@ export async function DELETE(
     let markIneligible: boolean = false;
 
     try {
-      const body = await req.json();
-      reason = body.reason;
-      markIneligible = Boolean(body.markIneligible);
+      const rawBody = await req.json();
+      const parsed = cancelDrawBodySchema.parse(rawBody);
+      reason = parsed.reason;
+      markIneligible = Boolean(parsed.markIneligible);
     } catch {
       // Body may be empty on standard DELETE
     }
@@ -48,9 +56,17 @@ export async function POST(
     }
 
     const { id: eventId, drawId } = await params;
-    const body = await req.json();
-    const reason = body.reason;
-    const markIneligible = Boolean(body.markIneligible);
+    let reason: string | undefined = undefined;
+    let markIneligible: boolean = false;
+
+    try {
+      const rawBody = await req.json();
+      const parsed = cancelDrawBodySchema.parse(rawBody);
+      reason = parsed.reason;
+      markIneligible = Boolean(parsed.markIneligible);
+    } catch {
+      // Body may be empty
+    }
 
     const result = await LotteryService.cancelDraw(drawId, session.user.id, reason, markIneligible);
 
