@@ -5,6 +5,7 @@ interface RateLimitEntry {
 
 class RateLimiter {
   private ipMap = new Map<string, RateLimitEntry>();
+  private lastCleanup = Date.now();
 
   /**
    * Check if a request from this IP is allowed.
@@ -14,6 +15,13 @@ class RateLimiter {
    */
   public check(ip: string, limit = 8, windowMs = 60000): { allowed: boolean; remaining: number } {
     const now = Date.now();
+
+    // Periodic auto-cleanup every 60s or when map exceeds 500 entries
+    if (now - this.lastCleanup > 60000 || this.ipMap.size > 500) {
+      this.cleanup();
+      this.lastCleanup = now;
+    }
+
     const entry = this.ipMap.get(ip);
 
     if (!entry || now > entry.resetAt) {
@@ -30,7 +38,7 @@ class RateLimiter {
   }
 
   /**
-   * Clean expired entries periodically
+   * Clean expired entries
    */
   public cleanup() {
     const now = Date.now();
@@ -40,6 +48,14 @@ class RateLimiter {
       }
     }
   }
+
+  /**
+   * Reset all entries (useful in testing)
+   */
+  public reset() {
+    this.ipMap.clear();
+    this.lastCleanup = Date.now();
+  }
 }
 
 const globalForRateLimiter = globalThis as unknown as {
@@ -47,4 +63,5 @@ const globalForRateLimiter = globalThis as unknown as {
 };
 
 export const rateLimiter = globalForRateLimiter.rateLimiter ?? new RateLimiter();
-if (process.env.NODE_ENV !== "production") globalForRateLimiter.rateLimiter = rateLimiter;
+globalForRateLimiter.rateLimiter = rateLimiter;
+

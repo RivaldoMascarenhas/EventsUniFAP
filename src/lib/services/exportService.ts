@@ -1,6 +1,6 @@
 import * as XLSX from "xlsx";
 import Papa from "papaparse";
-import { formatDate, formatDateTime, maskCPF, padNumber } from "@/lib/utils";
+import { formatDate, formatDateTime, maskCPF, padNumber, escapeHtml } from "@/lib/utils";
 
 export interface WinnerExportItem {
   drawnNumber: number;
@@ -134,14 +134,14 @@ export class ExportService {
             #${padNumber(item.ticketNumber, 3)}
           </td>
           <td style="padding: 8px 10px; border-bottom: 1px solid #E2E8F0; font-weight: 600; color: #1E293B;">
-            ${item.name}
-            ${item.email ? `<div style="font-size: 11px; color: #64748B; font-weight: normal;">${item.email}</div>` : ''}
+            ${escapeHtml(item.name)}
+            ${item.email ? `<div style="font-size: 11px; color: #64748B; font-weight: normal;">${escapeHtml(item.email)}</div>` : ''}
           </td>
           <td style="padding: 8px 10px; border-bottom: 1px solid #E2E8F0; color: #475569; font-mono: monospace;">
-            ${item.registration || (item.cpf ? maskCPF(item.cpf) : '-')}
+            ${escapeHtml(item.registration) || (item.cpf ? maskCPF(item.cpf) : '-')}
           </td>
           <td style="padding: 8px 10px; border-bottom: 1px solid #E2E8F0; color: #002B49; font-weight: 500;">
-            ${item.category || 'Geral'}
+            ${escapeHtml(item.category || 'Geral')}
           </td>
           <td style="padding: 8px 10px; border-bottom: 1px solid #E2E8F0; text-align: center;">
             ${
@@ -160,7 +160,7 @@ export class ExportService {
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Lista de Participantes - ${eventName} - UniFAP</title>
+  <title>Lista de Participantes - ${escapeHtml(eventName)} - UniFAP</title>
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <link rel="shortcut icon" href="/favicon.svg" />
   <link rel="apple-touch-icon" href="/branding/unifap-logo-square.svg" />
@@ -264,7 +264,7 @@ export class ExportService {
   <div class="meta-box">
     <div class="meta-item">
       <label>Evento</label>
-      <div>${eventName}</div>
+      <div>${escapeHtml(eventName)}</div>
     </div>
     <div class="meta-item">
       <label>Data do Evento</label>
@@ -384,14 +384,14 @@ export class ExportService {
             #${padNumber(item.drawnNumber, 3)}
           </td>
           <td style="padding: 10px 12px; border-bottom: 1px solid #E2E8F0; font-weight: 600; color: #1E293B;">
-            ${item.winnerName}
-            <div style="font-size: 11px; color: #64748B; font-weight: normal;">${item.registration ? `Matrícula: ${item.registration}` : ''} ${item.cpf ? `• CPF: ${maskCPF(item.cpf)}` : ''}</div>
+            ${escapeHtml(item.winnerName)}
+            <div style="font-size: 11px; color: #64748B; font-weight: normal;">${item.registration ? `Matrícula: ${escapeHtml(item.registration)}` : ''} ${item.cpf ? `• CPF: ${maskCPF(item.cpf)}` : ''}</div>
           </td>
           <td style="padding: 10px 12px; border-bottom: 1px solid #E2E8F0; color: #002B49; font-weight: 600;">
-            ${item.prizeName}
+            ${escapeHtml(item.prizeName)}
           </td>
           <td style="padding: 10px 12px; border-bottom: 1px solid #E2E8F0; color: #475569;">
-            ${item.sponsorName || '<span style="color: #EAA023; font-weight: 600;">UniFAP</span>'}
+            ${item.sponsorName ? escapeHtml(item.sponsorName) : '<span style="color: #EAA023; font-weight: 600;">UniFAP</span>'}
           </td>
           <td style="padding: 10px 12px; border-bottom: 1px solid #E2E8F0; color: #64748B; font-size: 12px; text-align: right;">
             ${formatDateTime(item.drawDate)}
@@ -406,7 +406,7 @@ export class ExportService {
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Ata de Resultados - ${eventName} - UniFAP Sorteios</title>
+  <title>Ata de Resultados - ${escapeHtml(eventName)} - UniFAP Sorteios</title>
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <link rel="shortcut icon" href="/favicon.svg" />
   <link rel="apple-touch-icon" href="/branding/unifap-logo-square.svg" />
@@ -523,7 +523,7 @@ export class ExportService {
   <div class="meta-box">
     <div class="meta-item">
       <label>Evento</label>
-      <div>${eventName}</div>
+      <div>${escapeHtml(eventName)}</div>
     </div>
     <div class="meta-item">
       <label>Data do Evento</label>
@@ -659,17 +659,17 @@ export class ExportService {
             #${padNumber(item.drawnNumber, 3)}
           </td>
           <td style="padding: 10px 12px; border-bottom: 1px solid #E2E8F0; font-weight: 600; color: #1E293B;">
-            ${item.winnerName}
-            <div style="font-size: 11px; color: #64748B; font-weight: normal;">${item.registration ? `Matrícula: ${item.registration}` : ''} ${item.cpf ? `• CPF: ${maskCPF(item.cpf)}` : ''}</div>
+            ${escapeHtml(item.winnerName)}
+            <div style="font-size: 11px; color: #64748B; font-weight: normal;">${item.registration ? `Matrícula: ${escapeHtml(item.registration)}` : ''} ${item.cpf ? `• CPF: ${maskCPF(item.cpf)}` : ''}</div>
           </td>
           <td style="padding: 10px 12px; border-bottom: 1px solid #E2E8F0; color: #002B49; font-weight: 500;">
-            ${item.eventName}
+            ${escapeHtml(item.eventName)}
           </td>
           <td style="padding: 10px 12px; border-bottom: 1px solid #E2E8F0; color: #002B49; font-weight: 600;">
-            ${item.prizeName}
+            ${escapeHtml(item.prizeName)}
           </td>
           <td style="padding: 10px 12px; border-bottom: 1px solid #E2E8F0; color: #475569;">
-            ${item.sponsorName || '<span style="color: #EAA023; font-weight: 600;">UniFAP</span>'}
+            ${item.sponsorName ? escapeHtml(item.sponsorName) : '<span style="color: #EAA023; font-weight: 600;">UniFAP</span>'}
           </td>
           <td style="padding: 10px 12px; border-bottom: 1px solid #E2E8F0; color: #64748B; font-size: 12px; text-align: right;">
             ${formatDateTime(item.drawDate)}
@@ -803,7 +803,7 @@ export class ExportService {
   <div class="meta-box">
     <div class="meta-item">
       <label>Escopo do Relatório</label>
-      <div>${filterInfo}</div>
+      <div>${escapeHtml(filterInfo)}</div>
     </div>
     <div class="meta-item">
       <label>Data de Emissão</label>
@@ -931,19 +931,19 @@ export class ExportService {
             ${formatDateTime(item.timestamp)}
           </td>
           <td style="padding: 8px 10px; border-bottom: 1px solid #E2E8F0; font-weight: 600; color: #1E293B;">
-            ${item.userName || 'Sistema / Público'}
-            ${item.userEmail ? `<div style="font-size: 10px; color: #64748B; font-weight: normal;">${item.userEmail} ${item.userRole ? `(${item.userRole})` : ''}</div>` : ''}
+            ${escapeHtml(item.userName || 'Sistema / Público')}
+            ${item.userEmail ? `<div style="font-size: 10px; color: #64748B; font-weight: normal;">${escapeHtml(item.userEmail)} ${item.userRole ? `(${escapeHtml(item.userRole)})` : ''}</div>` : ''}
           </td>
           <td style="padding: 8px 10px; border-bottom: 1px solid #E2E8F0;">
             <span style="background: #E0F2FE; color: #0369A1; padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 10px; font-family: monospace;">
-              ${item.action}
+              ${escapeHtml(item.action)}
             </span>
           </td>
           <td style="padding: 8px 10px; border-bottom: 1px solid #E2E8F0; font-weight: 500; color: #002B49; font-size: 11px;">
-            ${item.entity}
+            ${escapeHtml(item.entity)}
           </td>
           <td style="padding: 8px 10px; border-bottom: 1px solid #E2E8F0; color: #64748B; font-size: 10px; font-family: monospace; max-width: 250px; word-break: break-all;">
-            ${item.metadata || item.ipAddress || '-'}
+            ${escapeHtml(item.metadata || item.ipAddress || '-')}
           </td>
         </tr>
       `
@@ -1074,7 +1074,7 @@ export class ExportService {
   <div class="meta-box">
     <div class="meta-item">
       <label>Filtros Aplicados</label>
-      <div>${filterInfo}</div>
+      <div>${escapeHtml(filterInfo)}</div>
     </div>
     <div class="meta-item">
       <label>Data de Emissão</label>

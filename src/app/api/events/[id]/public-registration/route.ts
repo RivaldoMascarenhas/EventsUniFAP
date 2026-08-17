@@ -119,47 +119,82 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     }
 
     // 6. Secure Server-Side Ticket Registration
-    const participant = await ParticipantService.registerParticipant({
-      eventId: event.id,
-      name: validated.name.trim(),
-      cpf: isCpf ? cleanDoc : null,
-      registration: isMatricula ? validated.registration.trim() : null,
-      email: validated.email ? validated.email.trim().toLowerCase() : null,
-      phone: validated.phone ? validated.phone.trim() : null,
-      category: validated.category || "Aluno de Graduação",
-      isEligible: true,
-    });
+    try {
+      const participant = await ParticipantService.registerParticipant({
+        eventId: event.id,
+        name: validated.name.trim(),
+        cpf: isCpf ? cleanDoc : null,
+        registration: isMatricula ? validated.registration.trim() : null,
+        email: validated.email ? validated.email.trim().toLowerCase() : null,
+        phone: validated.phone ? validated.phone.trim() : null,
+        category: validated.category || "Aluno de Graduação",
+        isEligible: true,
+      });
 
-    // 7. Realtime Broadcast to Presentation Screen & Admin Dashboards
-    const totalParticipants = await prisma.participant.count({ where: { eventId: event.id } });
+      // 7. Realtime Broadcast to Presentation Screen & Admin Dashboards
+      const totalParticipants = await prisma.participant.count({ where: { eventId: event.id } });
 
-    realtimeService.publish(event.id, {
-      type: "participant:registered",
-      eventId: event.id,
-      participantCount: totalParticipants,
-    }).catch(() => {});
+      realtimeService.publish(event.id, {
+        type: "participant:registered",
+        eventId: event.id,
+        participantCount: totalParticipants,
+      }).catch(() => {});
 
-    realtimeService.broadcastGlobalUpdate({
-      type: "participant:registered",
-      eventId: event.id,
-      metadata: { participantCount: totalParticipants },
-    }).catch(() => {});
+      realtimeService.broadcastGlobalUpdate({
+        type: "participant:registered",
+        eventId: event.id,
+        metadata: { participantCount: totalParticipants },
+      }).catch(() => {});
 
-    return NextResponse.json(
-      {
-        success: true,
-        alreadyRegistered: false,
-        participant: {
-          id: participant.id,
-          name: participant.name,
-          ticketNumber: participant.ticketNumber,
-          registration: participant.registration,
-          eventName: event.name,
-          registeredAt: participant.registeredAt,
+      return NextResponse.json(
+        {
+          success: true,
+          alreadyRegistered: false,
+          participant: {
+            id: participant.id,
+            name: participant.name,
+            ticketNumber: participant.ticketNumber,
+            registration: participant.registration,
+            eventName: event.name,
+            registeredAt: participant.registeredAt,
+          },
         },
-      },
-      { status: 201 }
-    );
+        { status: 201 }
+      );
+    } catch (regError: any) {
+      // If concurrent request registered the participant simultaneously, recover gracefully
+      const existingAfterRace = await prisma.participant.findFirst({
+        where: {
+          eventId: event.id,
+          OR: [
+            ...(isCpf ? [{ cpf: cleanDoc }] : []),
+            ...(isMatricula ? [{ registration: validated.registration.trim() }] : []),
+            ...(validated.email && validated.email.trim() ? [{ email: validated.email.trim().toLowerCase() }] : []),
+          ],
+        },
+      });
+
+      if (existingAfterRace) {
+        return NextResponse.json(
+          {
+            success: true,
+            alreadyRegistered: true,
+            message: `Você já está inscrito neste sorteio! Seu Número da Sorte é #${existingAfterRace.ticketNumber}.`,
+            participant: {
+              id: existingAfterRace.id,
+              name: existingAfterRace.name,
+              ticketNumber: existingAfterRace.ticketNumber,
+              registration: existingAfterRace.registration,
+              eventName: event.name,
+              registeredAt: existingAfterRace.registeredAt,
+            },
+          },
+          { status: 200 }
+        );
+      }
+
+      throw regError;
+    }
   } catch (error: any) {
     console.error("[POST /api/events/[id]/public-registration]", error);
     return NextResponse.json({ error: error.message || "Erro ao realizar inscrição" }, { status: 400 });

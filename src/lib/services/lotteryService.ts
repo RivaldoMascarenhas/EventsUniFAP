@@ -101,28 +101,42 @@ export class LotteryService {
         throw new Error("Evento não encontrado.");
       }
 
-      // 2. Validate and Lock Prize
-      const prize = await tx.prize.findFirst({
+      // 2. Validate and Atomically Lock Prize (Optimistic Lock against double draw)
+      const lockResult = await tx.prize.updateMany({
         where: {
           id: prizeId,
           eventId: eventId,
+          status: PrizeStatus.AVAILABLE,
         },
+        data: {
+          status: PrizeStatus.DRAWN,
+        },
+      });
+
+      if (lockResult.count !== 1) {
+        const currentPrize = await tx.prize.findUnique({
+          where: { id: prizeId },
+          select: { status: true },
+        });
+
+        if (!currentPrize) {
+          throw new Error("Prêmio não encontrado para este evento.");
+        }
+        if (currentPrize.status === PrizeStatus.DRAWN) {
+          throw new Error("Este prêmio já foi sorteado e concluído.");
+        }
+        if (currentPrize.status === PrizeStatus.CANCELLED) {
+          throw new Error("Este prêmio foi cancelado.");
+        }
+        throw new Error("Este prêmio não está disponível para sorteio.");
+      }
+
+      const prize = await tx.prize.findUniqueOrThrow({
+        where: { id: prizeId },
         include: {
           sponsor: true,
         },
       });
-
-      if (!prize) {
-        throw new Error("Prêmio não encontrado para este evento.");
-      }
-
-      if (prize.status === PrizeStatus.DRAWN) {
-        throw new Error("Este prêmio já foi sorteado e concluído.");
-      }
-
-      if (prize.status === PrizeStatus.CANCELLED) {
-        throw new Error("Este prêmio foi cancelado.");
-      }
 
       let winner: any = null;
       let drawnNumber: number = 0;
@@ -261,13 +275,7 @@ export class LotteryService {
         },
       });
 
-      // 7. Update Prize Status
-      await tx.prize.update({
-        where: { id: prize.id },
-        data: {
-          status: PrizeStatus.DRAWN,
-        },
-      });
+      // 7. Prize status was atomically transitioned to DRAWN in step 2 lock
 
       // 8. Record Audit Log inside transaction
       await tx.auditLog.create({
