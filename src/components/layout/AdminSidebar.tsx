@@ -57,13 +57,13 @@ export function AdminSidebar() {
   };
 
   return (
-    <aside className="w-64 bg-unifap-navy text-white flex flex-col shrink-0 h-screen sticky top-0 border-r border-unifap-blue/40 select-none shadow-xl z-20 overflow-hidden">
+    <aside className="w-64 bg-unifap-navy text-white flex flex-col shrink-0 h-screen sticky top-0 border-r border-unifap-blue/40 select-none shadow-xl z-20">
       {/* Brand Header */}
       <div className="p-5 border-b border-white/10 flex flex-col gap-2 shrink-0">
         <Link href="/admin/dashboard" className="flex flex-col gap-2 group transition opacity-95 hover:opacity-100">
-          <div className="relative inline-flex items-center">
-            <BrandLogo variant="white" width={180} height={46} priority className="h-9 w-auto" />
-            <span className="absolute -top-1.5 -right-1 text-[9px] uppercase font-black tracking-wider px-2 py-0.5 rounded-full bg-unifap-gold text-slate-950 shadow-md">
+          <div className="flex items-center justify-between gap-2">
+            <BrandLogo variant="white" width={170} height={42} priority className="h-7 w-auto" />
+            <span className="text-[10px] uppercase font-black tracking-wider px-2.5 py-0.5 rounded-full bg-unifap-gold text-slate-950 shadow-md shadow-amber-500/20 shrink-0 translate-x-3.5 z-30">
               Sorteios
             </span>
           </div>
