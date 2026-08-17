@@ -232,7 +232,7 @@ export default function AdminDashboardPage() {
               </div>
             </div>
             <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
-              <span>Alunos contemplados</span>
+              <span>Participantes contemplados</span>
               <span className="font-semibold text-slate-700">UniFAP</span>
             </div>
           </CardContent>

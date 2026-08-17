@@ -306,9 +306,9 @@ export default function PublicEventRegistrationPage({ params }: { params: Promis
                 </div>
 
                 <div>
-                  <Label required>Curso / Setor / Categoria</Label>
+                  <Label required>Perfil / Curso / Setor</Label>
                   <Input
-                    placeholder="Ex: Sistemas de Informação, Fisioterapia, Visitante..."
+                    placeholder="Ex: Aluno (Direito), Professor, Convidado, Colaborador..."
                     leftIcon={<GraduationCap className="w-4 h-4" />}
                     error={errors.category?.message}
                     {...register("category")}

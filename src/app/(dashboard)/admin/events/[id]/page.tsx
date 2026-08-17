@@ -115,10 +115,10 @@ export default function SingleEventPage({ params }: { params: Promise<{ id: stri
   const downloadCsvTemplate = () => {
     const csvContent =
       "nome,matricula,cpf,curso,email,telefone\n" +
-      "Lucas Alencar da Silva,202310101,08412345678,Sistemas de Informação,lucas@aluno.unifapce.edu.br,(88) 99876-5432\n" +
-      "Mariana Sampaio Barreto,202310102,08423456789,Direito,mariana@aluno.unifapce.edu.br,(88) 99765-4321\n" +
-      "Pedro Henrique Valença,202310103,08434567890,Fisioterapia,pedro@aluno.unifapce.edu.br,(88) 99654-3210\n" +
-      "Beatriz Nogueira Lima,202310104,08445678901,Engenharia Civil,beatriz@aluno.unifapce.edu.br,(88) 99543-2109\n";
+      "Lucas Alencar da Silva,202310101,08412345678,Aluno - Sistemas de Informação,lucas.alencar@unifapce.edu.br,(88) 99876-5432\n" +
+      "Prof. Mariana Sampaio,DOC2024,08423456789,Professor(a) - Direito,mariana.sampaio@unifapce.edu.br,(88) 99765-4321\n" +
+      "Pedro Henrique Valença,CONV2026,08434567890,Convidado(a) Especial,pedro.valenca@gmail.com,(88) 99654-3210\n" +
+      "Beatriz Nogueira Lima,COLAB104,08445678901,Colaborador(a) - TI,beatriz.lima@unifapce.edu.br,(88) 99543-2109\n";
 
     const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
@@ -763,7 +763,7 @@ export default function SingleEventPage({ params }: { params: Promise<{ id: stri
                   Ver QR Code para Telão
                 </Button>
                 <Button variant="outline" size="sm" onClick={() => setActiveTab("participants")}>
-                  Importar Lista de Alunos
+                  Importar Lista de Participantes
                 </Button>
               </div>
             </CardContent>
@@ -1411,7 +1411,7 @@ export default function SingleEventPage({ params }: { params: Promise<{ id: stri
               <Label>E-mail</Label>
               <Input
                 type="email"
-                placeholder="aluno@unifapce.edu.br"
+                placeholder="participante@unifapce.edu.br"
                 value={newParticipant.email}
                 onChange={(e) => setNewParticipant({ ...newParticipant, email: e.target.value })}
               />
@@ -1426,9 +1426,9 @@ export default function SingleEventPage({ params }: { params: Promise<{ id: stri
             </div>
           </div>
           <div>
-            <Label>Categoria / Curso</Label>
+            <Label>Categoria / Perfil / Curso</Label>
             <Input
-              placeholder="Ex: Sistemas de Informação"
+              placeholder="Ex: Aluno (Direito), Professor, Convidado, Colaborador..."
               value={newParticipant.category}
               onChange={(e) => setNewParticipant({ ...newParticipant, category: e.target.value })}
             />
@@ -2004,13 +2004,13 @@ export default function SingleEventPage({ params }: { params: Promise<{ id: stri
                 <tr>
                   <td className="py-2.5 px-3 font-mono font-bold text-unifap-navy">curso / categoria</td>
                   <td className="py-2.5 px-3 text-slate-500 font-semibold">Opcional</td>
-                  <td className="py-2.5 px-3 text-slate-600">"Direito", "Fisioterapia", "Professor"</td>
+                  <td className="py-2.5 px-3 text-slate-600">"Aluno (Direito)", "Professor", "Convidado", "Colaborador"</td>
                   <td className="py-2.5 px-3 text-slate-500">Aparece na tela de resultado do telão</td>
                 </tr>
                 <tr>
                   <td className="py-2.5 px-3 font-mono font-bold text-unifap-navy">email</td>
                   <td className="py-2.5 px-3 text-slate-500 font-semibold">Opcional</td>
-                  <td className="py-2.5 px-3 text-slate-600">"aluno@unifapce.edu.br"</td>
+                  <td className="py-2.5 px-3 text-slate-600">"participante@unifapce.edu.br"</td>
                   <td className="py-2.5 px-3 text-slate-500">Notificação oficial de contemplado</td>
                 </tr>
                 <tr>
@@ -2030,9 +2030,10 @@ export default function SingleEventPage({ params }: { params: Promise<{ id: stri
             </div>
             <pre className="p-3.5 rounded-xl bg-slate-900 text-slate-100 font-mono text-[11px] overflow-x-auto leading-relaxed border border-slate-800">
 {`nome,matricula,cpf,curso,email,telefone
-Lucas Alencar da Silva,202310101,08412345678,Sistemas de Informação,lucas@aluno.unifapce.edu.br,(88) 99876-5432
-Mariana Sampaio Barreto,202310102,08423456789,Direito,mariana@aluno.unifapce.edu.br,(88) 99765-4321
-Pedro Henrique Valença,202310103,08434567890,Fisioterapia,pedro@aluno.unifapce.edu.br,(88) 99654-3210`}
+Lucas Alencar da Silva,202310101,08412345678,Aluno - Sistemas de Informação,lucas@unifapce.edu.br,(88) 99876-5432
+Prof. Mariana Sampaio,DOC2024,08423456789,Professor(a) - Direito,mariana@unifapce.edu.br,(88) 99765-4321
+Pedro Henrique Valença,CONV2026,08434567890,Convidado(a) Especial,pedro@gmail.com,(88) 99654-3210
+Beatriz Nogueira Lima,COLAB104,08445678901,Colaborador(a) - TI,beatriz@unifapce.edu.br,(88) 99543-2109`}
             </pre>
           </div>
 
