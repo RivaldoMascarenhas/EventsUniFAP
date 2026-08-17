@@ -8,15 +8,17 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="min-h-screen flex bg-slate-50 text-slate-900">
-      {/* Sidebar */}
+    <div className="h-screen flex overflow-hidden bg-slate-50 text-slate-900">
+      {/* Sidebar - Fixa lateralmente */}
       <AdminSidebar />
 
-      {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-w-0 min-h-screen">
+      {/* Main Content Area - Header fixo no topo e conteúdo rolável */}
+      <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
         <AdminHeader />
-        <main className="flex-1 p-6 sm:p-8 max-w-7xl w-full mx-auto overflow-y-auto">
-          {children}
+        <main className="flex-1 overflow-y-auto p-6 sm:p-8">
+          <div className="max-w-7xl w-full mx-auto pb-10">
+            {children}
+          </div>
         </main>
       </div>
     </div>
