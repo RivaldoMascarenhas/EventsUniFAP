@@ -57,9 +57,9 @@ export function AdminSidebar() {
   };
 
   return (
-    <aside className="w-64 bg-unifap-navy text-white flex flex-col shrink-0 min-h-screen border-r border-unifap-blue/40 select-none shadow-xl z-20">
+    <aside className="w-64 bg-unifap-navy text-white flex flex-col shrink-0 h-screen sticky top-0 border-r border-unifap-blue/40 select-none shadow-xl z-20">
       {/* Brand Header */}
-      <div className="p-5 border-b border-white/10 flex flex-col gap-2">
+      <div className="p-5 border-b border-white/10 flex flex-col gap-2 shrink-0">
         <Link href="/admin/dashboard" className="flex flex-col gap-2 group transition opacity-95 hover:opacity-100">
           <div className="flex items-center justify-between gap-2">
             <BrandLogo variant="white" width={170} height={42} priority className="h-7 w-auto" />
@@ -107,7 +107,7 @@ export function AdminSidebar() {
       </nav>
 
       {/* User Session & Logout */}
-      <div className="p-4 border-t border-unifap-blue/40 bg-unifap-dark/50">
+      <div className="p-4 border-t border-unifap-blue/40 bg-unifap-dark/50 shrink-0 mt-auto">
         <div className="flex items-center gap-3 mb-3 px-2">
           <div className="w-8 h-8 rounded-full bg-unifap-gold/20 border border-unifap-gold/50 flex items-center justify-center text-unifap-gold text-xs font-bold shrink-0">
             {session?.user?.name ? session.user.name.charAt(0).toUpperCase() : "U"}
