@@ -14,6 +14,7 @@ import {
   ShieldCheck,
   Users,
   LogOut,
+  Loader2,
   ExternalLink,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -120,10 +121,19 @@ export function AdminSidebar() {
         <button
           onClick={handleLogout}
           disabled={isLoggingOut}
-          className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-xs font-medium text-rose-300 hover:bg-rose-950/40 hover:text-rose-200 border border-rose-900/40 transition disabled:opacity-50 disabled:cursor-not-allowed"
+          className={cn(
+            "w-full flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all duration-200 border group",
+            isLoggingOut
+              ? "bg-rose-950/70 text-rose-200 border-rose-800/80 cursor-wait shadow-inner"
+              : "text-rose-300 bg-rose-950/20 hover:bg-rose-950/60 hover:text-rose-100 border-rose-900/40 hover:border-rose-800/80 active:scale-[0.98]"
+          )}
         >
-          <LogOut className={cn("w-3.5 h-3.5", isLoggingOut && "animate-spin")} />
-          <span>{isLoggingOut ? "Encerrando..." : "Encerrar Sessão"}</span>
+          {isLoggingOut ? (
+            <Loader2 className="w-3.5 h-3.5 animate-spin text-rose-300 shrink-0" />
+          ) : (
+            <LogOut className="w-3.5 h-3.5 text-rose-400 group-hover:text-rose-200 transition-transform duration-200 group-hover:translate-x-0.5 shrink-0" />
+          )}
+          <span>{isLoggingOut ? "Encerrando sessão..." : "Encerrar Sessão"}</span>
         </button>
       </div>
     </aside>

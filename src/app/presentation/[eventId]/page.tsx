@@ -184,10 +184,27 @@ function PresentationContent({ eventId }: { eventId: string }) {
 
     const drawKey = payload.drawId || payload.winner?.drawId || (payload.winner?.drawnNumber ? `num-${payload.winner.drawnNumber}-${payload.winner.prize?.id || ''}` : null);
 
+    const resolveFullPrize = (incomingPrize: any) => {
+      if (!incomingPrize) return incomingPrize;
+      if (incomingPrize.sponsor?.logoUrl) return incomingPrize;
+      const found = event?.prizes?.find((p: any) => p.id === incomingPrize.id || p.id === incomingPrize.prizeId);
+      if (found?.sponsor) {
+        return {
+          ...found,
+          ...incomingPrize,
+          sponsor: {
+            ...found.sponsor,
+            ...(incomingPrize.sponsor || {}),
+          },
+        };
+      }
+      return incomingPrize;
+    };
+
     if (payload.type === "state:sync") {
       if (!isAnimatingRef.current) {
         if (payload.state) setSafeState(payload.state);
-        if (payload.prize !== undefined) setCurrentPrize(payload.prize);
+        if (payload.prize !== undefined) setCurrentPrize(resolveFullPrize(payload.prize));
         if (payload.winner !== undefined) setCurrentWinner(payload.winner);
       }
     } else if (payload.type === "qr:show") {
@@ -213,14 +230,14 @@ function PresentationContent({ eventId }: { eventId: string }) {
       if (animationTimerRef.current) clearInterval(animationTimerRef.current);
       isAnimatingRef.current = false;
       setSafeState("SHOWING_PRIZE");
-      if (payload.prize) setCurrentPrize(payload.prize);
+      if (payload.prize) setCurrentPrize(resolveFullPrize(payload.prize));
       setCurrentWinner(null);
     } else if (payload.type === "draw:start") {
       if (isInitialLoad) {
         setSafeState("IDLE");
       } else if (!isAnimatingRef.current) {
         setSafeState("DRAWING");
-        if (payload.prize) setCurrentPrize(payload.prize);
+        if (payload.prize) setCurrentPrize(resolveFullPrize(payload.prize));
         soundEngine.play("DRAW_START");
       }
     } else if (payload.type === "draw:result") {
@@ -232,7 +249,8 @@ function PresentationContent({ eventId }: { eventId: string }) {
         if (isInitialLoad || isAlreadyProcessed) {
           if (!isAnimatingRef.current) {
             setCurrentWinner(payload.winner);
-            if (payload.winner.prize || payload.prize) setCurrentPrize(payload.winner.prize || payload.prize);
+            const resolved = resolveFullPrize(payload.winner.prize || payload.prize);
+            if (resolved) setCurrentPrize(resolved);
             setSafeState("RESULT");
           }
         } else {
@@ -502,7 +520,7 @@ function PresentationContent({ eventId }: { eventId: string }) {
               <div className="pt-2">
                 <div className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-xs text-slate-300">
                   <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-                  <span>Transmissão em tempo real ativa no auditório</span>
+                  <span>Transmissão em tempo real ativa{event?.location ? ` • ${event.location}` : ""}</span>
                 </div>
               </div>
             </motion.div>
@@ -582,7 +600,7 @@ function PresentationContent({ eventId }: { eventId: string }) {
             >
               <div className="inline-flex items-center gap-2 px-5 py-2 rounded-full bg-unifap-gold text-slate-950 text-xs sm:text-sm font-black uppercase tracking-widest shadow-lg">
                 <Smartphone className="w-4 h-4" />
-                <span>Inscrições Abertas no Auditório</span>
+                <span>Inscrições Abertas{event?.location ? ` • ${event.location}` : ""}</span>
               </div>
 
               <div>
@@ -674,18 +692,37 @@ function PresentationContent({ eventId }: { eventId: string }) {
                     )}
                   </div>
 
+                  {/* Sponsor Spotlight Showcase */}
                   {currentPrize.sponsor && (
-                    <div className="inline-flex items-center gap-3 px-6 py-3 rounded-2xl bg-white/10 border border-white/15 backdrop-blur-md">
-                      {currentPrize.sponsor.logoUrl && (
-                        <img
-                          src={currentPrize.sponsor.logoUrl}
-                          alt={currentPrize.sponsor.name}
-                          className="h-7 w-auto object-contain"
-                        />
+                    <div className="mt-4 p-4 sm:p-5 rounded-3xl bg-gradient-to-r from-white/[0.08] via-white/[0.14] to-white/[0.08] backdrop-blur-xl border-2 border-unifap-gold/50 shadow-[0_0_40px_rgba(234,160,35,0.2)] max-w-xl mx-auto flex items-center justify-center gap-5 sm:gap-6">
+                      {currentPrize.sponsor.logoUrl ? (
+                        <div className="h-16 sm:h-20 w-32 sm:w-44 bg-white/95 p-2.5 rounded-2xl flex items-center justify-center shrink-0 shadow-lg border border-white/60 transition-transform duration-300 hover:scale-105">
+                          <img
+                            src={currentPrize.sponsor.logoUrl}
+                            alt={currentPrize.sponsor.name}
+                            className="max-h-full max-w-full object-contain filter drop-shadow-xs"
+                          />
+                        </div>
+                      ) : (
+                        <div className="w-14 h-14 rounded-2xl bg-unifap-gold/20 border border-unifap-gold/40 flex items-center justify-center text-unifap-gold shrink-0 shadow-md">
+                          <Building2 className="w-7 h-7" />
+                        </div>
                       )}
-                      <span className="text-sm font-semibold text-slate-200">
-                        Oferecido por: <strong className="text-unifap-gold">{currentPrize.sponsor.name}</strong>
-                      </span>
+
+                      <div className="text-left flex-1 min-w-0">
+                        <div className="text-[11px] font-black uppercase tracking-widest text-unifap-gold flex items-center gap-1.5 mb-0.5">
+                          <Trophy className="w-3.5 h-3.5" />
+                          <span>Patrocínio & Apoio Oficial</span>
+                        </div>
+                        <div className="text-lg sm:text-2xl font-black text-white leading-tight truncate">
+                          {currentPrize.sponsor.name}
+                        </div>
+                        {currentPrize.sponsor.description && (
+                          <p className="text-xs text-slate-300 font-light mt-1 line-clamp-1">
+                            {currentPrize.sponsor.description}
+                          </p>
+                        )}
+                      </div>
                     </div>
                   )}
                 </>
@@ -725,8 +762,16 @@ function PresentationContent({ eventId }: { eventId: string }) {
               </div>
 
               {currentPrize && (
-                <div className="text-lg font-bold text-slate-300">
-                  Prêmio: <span className="text-white">{currentPrize.name}</span>
+                <div className="space-y-2">
+                  <div className="text-lg sm:text-xl font-bold text-slate-200">
+                    Prêmio: <span className="text-white font-extrabold">{currentPrize.name}</span>
+                  </div>
+                  {currentPrize.sponsor && (
+                    <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/10 border border-white/20 text-xs font-semibold text-unifap-gold backdrop-blur-md">
+                      <Building2 className="w-3.5 h-3.5" />
+                      <span>Patrocínio: {currentPrize.sponsor.name}</span>
+                    </div>
+                  )}
                 </div>
               )}
             </motion.div>
@@ -767,14 +812,30 @@ function PresentationContent({ eventId }: { eventId: string }) {
                   </div>
 
                   {/* Prize & Sponsor Showcase */}
-                  <div className="flex flex-wrap items-center justify-center gap-4 text-sm text-slate-200">
-                    <div className="px-5 py-2.5 rounded-xl bg-white/10 border border-white/20 backdrop-blur-md">
-                      Prêmio: <strong className="text-white">{currentWinner.prize?.name || currentPrize?.name || "Premiação Oficial"}</strong>
+                  <div className="flex flex-wrap items-center justify-center gap-4 max-w-3xl mx-auto">
+                    <div className="px-6 py-3 rounded-2xl bg-white/10 border border-white/20 backdrop-blur-md text-sm sm:text-base text-slate-200">
+                      🎁 Prêmio: <strong className="text-white">{currentWinner.prize?.name || currentPrize?.name || "Premiação Oficial"}</strong>
                     </div>
-                    {(currentWinner.prize?.sponsor?.name || currentPrize?.sponsor?.name) && (
-                      <div className="px-5 py-2.5 rounded-xl bg-white/10 border border-white/20 backdrop-blur-md">
-                        Patrocínio: <strong className="text-unifap-gold">{currentWinner.prize?.sponsor?.name || currentPrize?.sponsor?.name}</strong>
-                      </div>
+
+                    {(currentWinner.prize?.sponsor || currentPrize?.sponsor) && (
+                      (() => {
+                        const sp = currentWinner.prize?.sponsor || currentPrize?.sponsor;
+                        return (
+                          <div className="flex items-center gap-3.5 px-6 py-3 rounded-2xl bg-white/15 border-2 border-unifap-gold/60 backdrop-blur-xl shadow-xl">
+                            {sp.logoUrl ? (
+                              <div className="h-10 w-28 bg-white/95 p-1.5 rounded-xl flex items-center justify-center shrink-0 shadow-md">
+                                <img src={sp.logoUrl} alt={sp.name} className="max-h-full max-w-full object-contain" />
+                              </div>
+                            ) : (
+                              <Building2 className="w-5 h-5 text-unifap-gold shrink-0" />
+                            )}
+                            <div className="text-left">
+                              <div className="text-[10px] uppercase font-black tracking-widest text-unifap-gold">Patrocínio Oficial</div>
+                              <div className="text-sm sm:text-base font-black text-white">{sp.name}</div>
+                            </div>
+                          </div>
+                        );
+                      })()
                     )}
                   </div>
                 </>

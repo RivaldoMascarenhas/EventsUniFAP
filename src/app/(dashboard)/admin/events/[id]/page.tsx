@@ -1214,7 +1214,7 @@ export default function SingleEventPage({ params }: { params: Promise<{ id: stri
               QR Code Oficial do Evento
             </h3>
             <p className="text-sm text-slate-600 leading-relaxed">
-              Exiba este QR Code no telão do auditório ou projete nos slides para que os participantes e estudantes possam se inscrever diretamente pelo celular.
+              Exiba este QR Code no telão do evento ou projete nos slides para que os participantes possam se inscrever diretamente pelo celular.
             </p>
 
             <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
